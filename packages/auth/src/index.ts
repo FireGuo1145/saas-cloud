@@ -1,4 +1,5 @@
 import { Context, Schema, Session } from "yumeri";
+import { fileURLToPath } from "node:url";
 import type { User } from "@mirelia/user";
 import "@mirelia/dashboard";
 import "@mirelia/user";
@@ -158,8 +159,8 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
 
   ctx.component.dashboard.addEntry({
     id: "auth",
-    dev: new URL("../frontend/index.tsx", import.meta.url).pathname,
-    prod: new URL("./frontend/auth.js", import.meta.url).pathname,
+    dev: fileURLToPath(new URL("../frontend/index.tsx", import.meta.url)),
+    prod: fileURLToPath(new URL("../dist/frontend/auth.js", import.meta.url)),
     plugin: "auth"
   });
 }

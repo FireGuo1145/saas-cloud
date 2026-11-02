@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { Context, Schema, Session } from "yumeri";
 import bcrypt from "bcryptjs";
 import "@mirelia/database-core";
@@ -84,8 +85,8 @@ export const config: Schema<Record<string, never>> = Schema.object({});
 export async function apply(ctx: Context) {
   ctx.component.dashboard.addEntry({
     id: "user",
-    dev: new URL("../frontend/index.tsx", import.meta.url).pathname,
-    prod: new URL("./frontend/user.js", import.meta.url).pathname,
+    dev: fileURLToPath(new URL("../frontend/index.tsx", import.meta.url)),
+    prod: fileURLToPath(new URL("../dist/frontend/user.js", import.meta.url)),
     plugin: "user",
   });
 
