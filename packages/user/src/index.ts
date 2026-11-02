@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { Context, Schema, Session } from "yumeri";
+import { Context, Logger, Schema, Session } from "yumeri";
 import bcrypt from "bcryptjs";
 import "@mirelia/database-core";
 import "@mirelia/dashboard";
@@ -18,6 +18,7 @@ declare module "@yumerijs/types" {
 export const depend = ["database", "dashboard"];
 export const provide = ["user"];
 export const sessionCookieName = "mirelia_session";
+const logger = new Logger("user");
 
 const sessionLifetimeSeconds = 60 * 60 * 24 * 14;
 const bcryptRounds = 12;
@@ -26,6 +27,12 @@ export interface RegisterUserInput {
   username: string;
   email: string;
   password: string;
+}
+
+export interface UserConfig {
+  adminUsername: string;
+  adminEmail: string;
+  adminPassword: string;
 }
 
 export interface UserService {
@@ -80,9 +87,13 @@ function publicUser(user: User): PublicUser {
   return safe;
 }
 
-export const config: Schema<Record<string, never>> = Schema.object({});
+export const config: Schema<UserConfig> = Schema.object({
+  adminUsername: Schema.string("管理员用户名，留空时不创建初始管理员").key("user.adminUsername").default(""),
+  adminEmail: Schema.string("管理员邮箱，留空时使用用户名加 @localhost").key("user.adminEmail").default(""),
+  adminPassword: Schema.string("管理员密码，至少 12 个字符").key("user.adminPassword").default(""),
+});
 
-export async function apply(ctx: Context) {
+export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUsername: "", adminEmail: "", adminPassword: "" }) {
   ctx.component.dashboard.addEntry({
     id: "user",
     dev: fileURLToPath(new URL("../frontend/index.tsx", import.meta.url)),
@@ -111,6 +122,52 @@ export async function apply(ctx: Context) {
     revoked_at: "timestamp",
     created_at: { type: "timestamp", nullable: false },
   }, { unique: ["token_hash"] });
+
+  const adminUsername = normalizeUsername(pluginConfig.adminUsername ?? "");
+  const adminPassword = pluginConfig.adminPassword ?? "";
+  const adminEmail = normalizeEmail(pluginConfig.adminEmail || `${adminUsername}@localhost.localdomain`);
+  if (adminUsername || adminPassword || pluginConfig.adminEmail) {
+    if (!/^[\p{L}\p{N}_.-]{3,32}$/u.test(adminUsername)) throw new Error("user.adminUsername must be 3-32 letters, numbers, dots, underscores, or hyphens");
+    if (!validEmail(adminEmail)) throw new Error("user.adminEmail must be a valid email address");
+    if (!validPassword(adminPassword)) throw new Error("user.adminPassword must be 12-72 UTF-8 bytes");
+
+    const byUsername = await db.selectOne("users", { username: adminUsername }) as User | undefined;
+    const byEmail = await db.selectOne("users", { email: adminEmail }) as User | undefined;
+    if (byUsername && byEmail && byUsername.id !== byEmail.id) {
+      throw new Error("Configured administrator username and email belong to different accounts");
+    }
+    const existing = byUsername ?? byEmail;
+    const now = new Date().toISOString();
+    const passwordMatches = existing ? await bcrypt.compare(adminPassword, existing.password_hash) : false;
+    if (existing) {
+      if (existing.id === undefined) throw new Error("Configured administrator has an invalid account id");
+      await db.update("users", { id: existing.id }, {
+        username: adminUsername,
+        email: adminEmail,
+        password_hash: passwordMatches ? existing.password_hash : await bcrypt.hash(adminPassword, bcryptRounds),
+        is_admin: true,
+        email_verified: true,
+        updated_at: now,
+      });
+      if (!passwordMatches) {
+        await db.update("user_sessions", { user_id: existing.id, revoked_at: null }, { revoked_at: now });
+      }
+      logger.info(`Administrator account "${adminUsername}" synchronized from user configuration`);
+    } else {
+      const administrator = await db.create("users", {
+        username: adminUsername,
+        email: adminEmail,
+        password_hash: await bcrypt.hash(adminPassword, bcryptRounds),
+        email_verified: true,
+        avatar_url: "",
+        is_admin: true,
+        created_at: now,
+        updated_at: now,
+      });
+      await ctx.emit("user:registered", administrator);
+      logger.info(`Administrator account "${adminUsername}" created from user configuration`);
+    }
+  }
 
   const service: UserService = {
     async authenticate(identifier, password) {

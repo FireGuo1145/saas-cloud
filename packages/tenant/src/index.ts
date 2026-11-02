@@ -141,7 +141,7 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
   };
 
   ctx.registerComponent("tenant", service);
-  ctx.on("user:registered", async (user: User) => {
+  const ensurePersonalWorkspace = async (user: User) => {
     if (user.id === undefined || (await service.listForUser(user.id)).length) return;
     const now = new Date().toISOString();
     const tenant = await db.create("tenants", {
@@ -159,7 +159,11 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
       created_at: now,
       updated_at: now,
     });
-  });
+  };
+  ctx.on("user:registered", ensurePersonalWorkspace);
+  for (const user of await db.select("users", {})) {
+    await ensurePersonalWorkspace(user as User);
+  }
   ctx.i18n({ tenant: {
     config: { defaultTenantName: { zh: "新用户默认租户名称", en: "Default tenant name", ja: "新規ユーザーのデフォルトテナント名" } },
   } });

@@ -1,7 +1,7 @@
 {
   "core": {
     "host": "0.0.0.0",
-    "port": 3001,
+    "port": 3000,
     "enableCors": false
   },
   "plugins": {
@@ -9,7 +9,11 @@
       "path": "./data/mirelia.db"
     },
     "@mirelia/dashboard": {},
-    "@mirelia/user": {},
+    "@mirelia/user": {
+      "adminUsername": "",
+      "adminEmail": "",
+      "adminPassword": ""
+    },
     "@mirelia/tenant": {},
     "@mirelia/auth": {
       "loginEnabled": true,

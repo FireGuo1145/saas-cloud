@@ -37,5 +37,15 @@ style. Plugin pages import `Button`, `Input`, `Label`, `Card`, and future UI
 components from `@mirelia/dashboard/frontend`. Business packages do not add a
 second theme stylesheet or use native form controls directly.
 
-Run `yarn build` to build every package. Run `yarn dev` after creating the local
-`yumeri.json` configuration to start Yumeri with the TypeScript loader.
+Run `yarn build` to build every package. Copy `yumeri.example.json` to
+`yumeri.json`, then run `yarn dev` to start Yumeri with the TypeScript loader.
+
+## Administrator account
+
+Set `adminUsername` and `adminPassword` in the `@mirelia/user` section of
+`yumeri.json` to create the initial administrator. The password must contain at
+least 12 characters and at most 72 UTF-8 bytes. `adminEmail` is optional; when
+omitted, the account uses `<username>@localhost.localdomain`. Keep the configured password
+in your local `yumeri.json`, which is ignored by Git. On startup, the configured
+account is promoted to administrator and its password is synchronized; changing
+the password revokes that account's existing sessions.
