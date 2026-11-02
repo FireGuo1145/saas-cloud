@@ -1,0 +1,22 @@
+{
+  "name": "@mirelia/sqlite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "dev": "src/index.ts",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "../../node_modules/.bin/tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@mirelia/database-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "yumeri": "^3.1.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "yumeri": "^3.1.4"
+  }
+}
