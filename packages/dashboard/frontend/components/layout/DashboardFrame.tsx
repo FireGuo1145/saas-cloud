@@ -19,8 +19,9 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
     return `/${pattern.map((part, index) => part.startsWith(":") ? current[index] : part).join("/")}`;
   }
   const visibleTools = tools.filter(({ paths }) => !paths || paths.some(matchPath));
-  const visibleItems = items.filter(({ paths }) => !paths || paths.some(matchPath));
-  const navigationGroup = visibleItems.find(({ group }) => group)?.group ?? "Workspace";
+  const scopedItems = items.filter(({ group, paths }) => Boolean(group && paths?.some(matchPath)));
+  const visibleItems = scopedItems.length ? scopedItems : items.filter(({ group, paths }) => !group && (!paths || paths.some(matchPath)));
+  const navigationGroup = scopedItems[0]?.group ?? "Workspace";
   return (
     <div className="flex h-dvh min-h-[480px] flex-col overflow-hidden bg-background text-foreground">
       <header className="z-20 flex h-14 shrink-0 items-center border-b border-border bg-card">
