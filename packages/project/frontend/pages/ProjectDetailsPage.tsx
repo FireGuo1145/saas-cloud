@@ -6,7 +6,8 @@ import { Check, CircleDot, Plus, Save, Settings2 } from "lucide-react";
 interface Project { id: number; project_id: string; name: string; description: string; status: string; created_at: string; updated_at: string }
 interface ProjectField { id: number; key: string; label: string; type: "text" | "number" | "boolean" | "date" | "url" | "select"; required: boolean; options: string[]; value: unknown }
 interface FieldGroup { id: number; key: string; name: string; fields: ProjectField[] }
-interface ProjectPayload { project: Project; fieldGroups: FieldGroup[] }
+type Permission = "view" | "edit" | "manage_members" | "manage_fields";
+interface ProjectPayload { project: Project; fieldGroups: FieldGroup[]; permissions: Permission[]; canManageFieldDefinitions: boolean }
 const fieldTypes = ["text", "number", "boolean", "date", "url", "select"] as const;
 
 export default function ProjectDetailsPage() {
@@ -20,6 +21,8 @@ export default function ProjectDetailsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [canManageFieldDefinitions, setCanManageFieldDefinitions] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState(false);
   const [fieldGroup, setFieldGroup] = useState<FieldGroup>();
@@ -38,6 +41,8 @@ export default function ProjectDetailsPage() {
     setProjectName(response.data.project.name);
     setProjectDescription(response.data.project.description);
     setGroups(response.data.fieldGroups);
+    setPermissions(response.data.permissions);
+    setCanManageFieldDefinitions(response.data.canManageFieldDefinitions);
     setValues(Object.fromEntries(response.data.fieldGroups.flatMap((group) => group.fields.map((field) => [field.id, field.value]))));
   }
 
@@ -103,32 +108,32 @@ export default function ProjectDetailsPage() {
         <div className="mb-4 flex items-center gap-2"><Settings2 className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Project details</h2></div>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
           <Detail label="Project ID" value={project.project_id} />
-          <div className="space-y-2"><Label htmlFor="project-name-edit">Project name</Label><Input id="project-name-edit" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} /></div>
+          <div className="space-y-2"><Label htmlFor="project-name-edit">Project name</Label><Input id="project-name-edit" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} isDisabled={!permissions.includes("edit")} /></div>
           <Detail label="Status" value={project.status} />
           <Detail label="Created" value={new Date(project.created_at).toLocaleString()} />
           <Detail label="Last updated" value={new Date(project.updated_at).toLocaleString()} />
-          <div className="space-y-2"><Label htmlFor="project-description-edit">Description</Label><Input id="project-description-edit" value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} maxLength={2000} /></div>
+          <div className="space-y-2"><Label htmlFor="project-description-edit">Description</Label><Input id="project-description-edit" value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} maxLength={2000} isDisabled={!permissions.includes("edit")} /></div>
         </div>
-        <div className="mt-4 flex justify-end"><Button variant="outline" onPress={() => void saveProject()} isDisabled={saving || !projectName.trim()}><Save />Save project</Button></div>
+        {permissions.includes("edit") && <div className="mt-4 flex justify-end"><Button variant="outline" onPress={() => void saveProject()} isDisabled={saving || !projectName.trim()}><Save />Save project</Button></div>}
       </section>
 
       <section className="py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-sm font-semibold">Custom fields</h2><p className="mt-1 text-sm text-muted-foreground">Tenant-wide field groups and project-specific values.</p></div>
-          <Button variant="outline" onPress={() => setGroupOpen(true)}><Plus />Add field group</Button>
+          {canManageFieldDefinitions && <Button variant="outline" onPress={() => setGroupOpen(true)}><Plus />Add field group</Button>}
         </div>
         {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
         {groups.length ? <div className="space-y-8">
           {groups.map((group) => <div key={group.id} className="border-t border-border pt-4">
-            <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-sm font-medium">{group.name}</h3><p className="text-xs text-muted-foreground">{group.key}</p></div><Button variant="ghost" size="sm" onPress={() => { setFieldGroup(group); setFieldOpen(true); }}><Plus />Add field</Button></div>
+            <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-sm font-medium">{group.name}</h3><p className="text-xs text-muted-foreground">{group.key}</p></div>{canManageFieldDefinitions && <Button variant="ghost" size="sm" onPress={() => { setFieldGroup(group); setFieldOpen(true); }}><Plus />Add field</Button>}</div>
             {group.fields.length ? <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
               {group.fields.map((field) => <div key={field.id} className="space-y-2">
                 <Label htmlFor={`field-${field.id}`}>{field.label}{field.required && <span className="ml-1 text-destructive">*</span>}</Label>
-                <FieldEditor field={field} value={values[field.id] ?? ""} onChange={(value) => setValues((current) => ({ ...current, [field.id]: value }))} />
+                <FieldEditor field={field} value={values[field.id] ?? ""} disabled={!permissions.includes("manage_fields")} onChange={(value) => setValues((current) => ({ ...current, [field.id]: value }))} />
               </div>)}
-            </div> : <p className="text-sm text-muted-foreground">No fields in this group.</p>}
+            </div> : <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">No fields in this group.</p>{canManageFieldDefinitions && <Button variant="ghost" size="sm" onPress={() => { setFieldGroup(group); setFieldOpen(true); }}><Plus />Add field</Button>}</div>}
           </div>)}
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">{message && <p role="status" className="mr-auto text-sm text-muted-foreground"><Check className="mr-1 inline size-4" />{message}</p>}<Button onPress={() => void saveValues()} isDisabled={saving}><Save />{saving ? "Saving..." : "Save fields"}</Button></div>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">{message && <p role="status" className="mr-auto text-sm text-muted-foreground"><Check className="mr-1 inline size-4" />{message}</p>}{permissions.includes("manage_fields") && <Button onPress={() => void saveValues()} isDisabled={saving}><Save />{saving ? "Saving..." : "Save fields"}</Button>}</div>
         </div> : <div className="border-y border-border py-10 text-center"><p className="text-sm font-medium">No custom field groups</p><p className="mt-1 text-sm text-muted-foreground">Add a field group to define reusable project metadata.</p></div>}
       </section>
 
@@ -149,9 +154,9 @@ function Detail({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm">{value}</dd></div>;
 }
 
-function FieldEditor({ field, value, onChange }: { field: ProjectField; value: unknown; onChange(value: unknown): void }) {
-  if (field.type === "boolean") return <Button type="button" variant={value === true ? "secondary" : "outline"} className="justify-start" onPress={() => onChange(value !== true)}>{value === true ? <Check /> : <span className="size-4" />}{value === true ? "Enabled" : "Disabled"}</Button>;
-  if (field.type === "select") return <div className="flex flex-wrap gap-2">{field.options.map((option) => <Button key={option} type="button" size="sm" variant={value === option ? "secondary" : "outline"} onPress={() => onChange(value === option ? "" : option)}>{option}</Button>)}</div>;
+function FieldEditor({ field, value, disabled, onChange }: { field: ProjectField; value: unknown; disabled: boolean; onChange(value: unknown): void }) {
+  if (field.type === "boolean") return <Button type="button" isDisabled={disabled} variant={value === true ? "secondary" : "outline"} className="justify-start" onPress={() => onChange(value !== true)}>{value === true ? <Check /> : <span className="size-4" />}{value === true ? "Enabled" : "Disabled"}</Button>;
+  if (field.type === "select") return <div className="flex flex-wrap gap-2">{field.options.map((option) => <Button key={option} type="button" isDisabled={disabled} size="sm" variant={value === option ? "secondary" : "outline"} onPress={() => onChange(value === option ? "" : option)}>{option}</Button>)}</div>;
   const type = field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "url" ? "url" : "text";
-  return <Input id={`field-${field.id}`} type={type} value={String(value ?? "")} onChange={(event) => onChange(field.type === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)} />;
+  return <Input id={`field-${field.id}`} type={type} isDisabled={disabled} value={String(value ?? "")} onChange={(event) => onChange(field.type === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)} />;
 }
