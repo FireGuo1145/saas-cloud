@@ -12,6 +12,7 @@
     "start": "yumeri start --auto install"
   },
   "dependencies": {
+    "@mirelia/project": "workspace:^",
     "yumeri": "^3.1.4"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { DashboardContext, useRoutes } from "./extension";
-import { useEffect, useState } from "react";
+import { BrowserRouter, Route, Routes, DashboardContext, useRoutes } from "@mirelia/dashboard/frontend";
+import { useEffect, useState, type ReactNode } from "react";
+import { DashboardFrame } from "./components/layout/DashboardFrame";
 import "./index.css";
 interface Manifest { entries?: Array<{ id: string; files: Array<{ url: string }> }> }
 export default function App() {
@@ -23,5 +23,9 @@ export default function App() {
     }).catch((error) => console.error("Could not load dashboard plugins", error));
     return () => { active = false; contexts.forEach((context) => context.dispose()); };
   }, []);
-  return <BrowserRouter>{loaded ? <Routes>{routes.map(({ path, component: Component }) => <Route key={path} path={path} element={<Component />} />)}</Routes> : null}</BrowserRouter>;
+  return <BrowserRouter>{loaded ? <Routes>{routes.map(({ path, component: Component, shell }) => {
+    const page = <Component />;
+    const content: ReactNode = shell === "dashboard" ? <DashboardFrame>{page}</DashboardFrame> : page;
+    return <Route key={path} path={path} element={content} />;
+  })}</Routes> : null}</BrowserRouter>;
 }

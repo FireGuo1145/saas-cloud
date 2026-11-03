@@ -15,6 +15,7 @@
       "adminPassword": ""
     },
     "@mirelia/tenant": {},
+    "@mirelia/project": {},
     "@mirelia/auth": {
       "loginEnabled": true,
       "registrationEnabled": false

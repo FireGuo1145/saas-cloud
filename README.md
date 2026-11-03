@@ -16,6 +16,7 @@ dashboard      application shell, plugin manifest, shared React runtime, shadcn 
 user           account domain: users, password credentials, sessions, profile API
 tenant         tenants, memberships, tenant context, personal workspace creation
 auth           login/register policy, auth routes, session gate, login UI
+project        workspace-scoped projects and reusable custom field groups
 ```
 
 The dependency direction is deliberate:
@@ -25,11 +26,15 @@ database driver -> database-core
 user            -> database-core, dashboard
 tenant          -> user, database-core, dashboard
 auth            -> user, dashboard
+project         -> tenant, user, database-core, dashboard
 ```
 
 `user` is the account authority. Other plugins use its `UserService` rather than
 reading the users table directly. A successful registration emits
 `user:registered`; `tenant` consumes it to create the user's first workspace.
+Projects are isolated by the current tenant. Their base identity is stored on
+the project record; tenant-level field groups and typed field definitions are
+reused across projects while values stay project-specific.
 
 The shared UI lives in `packages/dashboard/frontend/components/ui` and is
 initialized with shadcn preset `b27GcrRo`, base `aria`, and the neutral Rhea

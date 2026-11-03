@@ -71,5 +71,6 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
+  ctx.navigation({ id: "account", label: "Account", path: "/account/profile", icon: UserRound, order: 90 });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });
 }
