@@ -129,6 +129,7 @@ export async function apply(ctx: Context) {
       settings: { zh: "设置", en: "Settings", ja: "設定" },
       members: { zh: "成员", en: "Members", ja: "メンバー" },
     },
+    backToList: { zh: "返回项目列表", en: "Back to projects", ja: "プロジェクト一覧に戻る" },
     workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
     manageWorkspaceProjects: { zh: "管理此工作区中的项目。", en: "Manage projects in this workspace.", ja: "このワークスペースのプロジェクトを管理します。" },
     newProject: { zh: "新建项目", en: "New project", ja: "新しいプロジェクト" },

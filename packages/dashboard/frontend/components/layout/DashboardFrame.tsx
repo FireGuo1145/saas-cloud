@@ -2,7 +2,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useNavigation, useTopBar } from "@mirelia/dashboard/frontend";
 import { useI18n, LanguageSwitcher } from "@mirelia/dashboard/frontend";
-import { Cloud } from "lucide-react";
+import { ArrowLeft, Cloud } from "lucide-react";
 
 export function DashboardFrame({ children }: { children: ReactNode }) {
   const items = useNavigation();
@@ -38,10 +38,12 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
         <Link to="/account/profile" className="mr-4 grid size-8 shrink-0 place-items-center rounded-full border border-border text-xs font-medium text-muted-foreground" aria-label={t("cloud.account.profile")}>ME</Link>
       </header>
       <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-1.5 sm:hidden" aria-label={t("cloud.nav.mainNavigation")}>
+        {scopedItems.length > 0 && <Link to="/projects" className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground"><ArrowLeft className="size-3.5" />{t("cloud.project.backToList")}</Link>}
         {visibleItems.map(({ id, label, labelKey, path, icon: Icon }) => <NavLink key={id} to={resolvePath(path)} end className={({ isActive }) => `flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-xs ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}><Icon className="size-3.5" />{labelKey ? t(labelKey) : t(label)}</NavLink>)}
       </nav>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 border-r border-border bg-card px-3 py-4 sm:block">
+          {scopedItems.length > 0 && <Link to="/projects" className="mb-4 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ArrowLeft className="size-4 shrink-0" />{t("cloud.project.backToList")}</Link>}
           <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{navigationGroup}</div>
           <nav className="space-y-1" aria-label={t("cloud.nav.mainNavigation")}>
             {visibleItems.map(({ id, label, labelKey, path, icon: Icon }) => (

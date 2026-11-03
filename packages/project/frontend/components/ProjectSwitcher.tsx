@@ -32,6 +32,14 @@ export default function ProjectSwitcher() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  function projectDestination(projectId: number) {
+    const currentRoute = location.pathname.match(/^\/projects\/\d+(\/.*)?$/);
+    return {
+      pathname: `/projects/${projectId}${currentRoute?.[1] ?? ""}`,
+      search: location.search,
+      hash: location.hash,
+    };
+  }
 
   async function reload() {
     const response = await api.get<{ projects: Project[] }>("/projects");
@@ -69,7 +77,7 @@ export default function ProjectSwitcher() {
           </Button>
         <DropdownMenu className="w-72">
           <DropdownMenuLabel>{t("cloud.project.nav.projects")}</DropdownMenuLabel>
-          {projects.map((project) => <DropdownMenuItem key={project.id} className="gap-2" onAction={() => navigate(`/projects/${project.id}`)}>
+          {projects.map((project) => <DropdownMenuItem key={project.id} className="gap-2" onAction={() => navigate(projectDestination(project.id))}>
             <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-secondary text-xs font-semibold">{project.name.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{project.name}</span>{active?.id === project.id && <Check className="size-4" />}
           </DropdownMenuItem>)}
           {!projects.length && <DropdownMenuItem isDisabled>{t("cloud.project.noProjects")}</DropdownMenuItem>}
