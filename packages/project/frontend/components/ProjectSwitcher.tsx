@@ -67,12 +67,10 @@ export default function ProjectSwitcher() {
           </Button>
         <DropdownMenu className="w-72">
           <DropdownMenuLabel>Projects</DropdownMenuLabel>
-          <div className="max-h-64 overflow-y-auto">
-            {projects.map((project) => <DropdownMenuItem key={project.id} className="gap-2" onAction={() => navigate(`/projects/${project.id}`)}>
-              <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-secondary text-xs font-semibold">{project.name.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{project.name}</span>{active?.id === project.id && <Check className="size-4" />}
-            </DropdownMenuItem>)}
-            {!projects.length && <p className="px-2 py-3 text-sm text-muted-foreground">No projects yet</p>}
-          </div>
+          {projects.map((project) => <DropdownMenuItem key={project.id} className="gap-2" onAction={() => navigate(`/projects/${project.id}`)}>
+            <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-secondary text-xs font-semibold">{project.name.slice(0, 1).toUpperCase()}</span><span className="min-w-0 flex-1 truncate">{project.name}</span>{active?.id === project.id && <Check className="size-4" />}
+          </DropdownMenuItem>)}
+          {!projects.length && <DropdownMenuItem isDisabled>No projects yet</DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuItem onAction={() => setCreateOpen(true)}><FolderPlus className="size-4" />Create project</DropdownMenuItem>
         </DropdownMenu>
