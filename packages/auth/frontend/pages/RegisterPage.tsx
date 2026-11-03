@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { api, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Link, LanguageSwitcher, useI18n } from "@mirelia/dashboard/frontend";
+import { api, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Link, LanguageSwitcher, ThemeSwitcher, useI18n } from "@mirelia/dashboard/frontend";
 
 export default function RegisterPage() {
   const { t } = useI18n();
@@ -25,7 +25,7 @@ export default function RegisterPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <div className="absolute right-4 top-4"><LanguageSwitcher /></div>
+      <div className="absolute right-4 top-4 flex items-center gap-1"><ThemeSwitcher /><LanguageSwitcher /></div>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{t("cloud.auth.registerTitle")}</CardTitle>

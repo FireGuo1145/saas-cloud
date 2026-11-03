@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useNavigation, useTopBar } from "@mirelia/dashboard/frontend";
-import { useI18n, LanguageSwitcher } from "@mirelia/dashboard/frontend";
+import { useI18n, LanguageSwitcher, ThemeSwitcher } from "@mirelia/dashboard/frontend";
 import { ArrowLeft, Cloud } from "lucide-react";
 
 export function DashboardFrame({ children }: { children: ReactNode }) {
@@ -34,6 +34,7 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
           {visibleTools.map(({ id, component: Component }) => <Component key={id} />)}
         </div>
+        <ThemeSwitcher />
         <LanguageSwitcher />
         <Link to="/account/profile" className="mr-4 grid size-8 shrink-0 place-items-center rounded-full border border-border text-xs font-medium text-muted-foreground" aria-label={t("cloud.account.profile")}>ME</Link>
       </header>

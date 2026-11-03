@@ -35,6 +35,12 @@ export async function apply(ctx: Context) {
       creating: { zh: "创建中…", en: "Creating…", ja: "作成中…" },
       retry: { zh: "重试", en: "Retry", ja: "再試行" },
     },
+    theme: {
+      switch: { zh: "切换主题", en: "Switch theme", ja: "テーマを切り替え" },
+      light: { zh: "浅色", en: "Light", ja: "ライト" },
+      dark: { zh: "暗色", en: "Dark", ja: "ダーク" },
+      system: { zh: "跟随系统", en: "System", ja: "システムに従う" },
+    },
     nav: {
       workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
       project: { zh: "项目", en: "Project", ja: "プロジェクト" },

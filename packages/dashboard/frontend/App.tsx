@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, DashboardContext, I18nProvider, useRoutes, type I18nDictionary } from "@mirelia/dashboard/frontend";
+import { BrowserRouter, Route, Routes, DashboardContext, I18nProvider, ThemeProvider, useRoutes, type I18nDictionary } from "@mirelia/dashboard/frontend";
 import { useEffect, useState, type ReactNode } from "react";
 import { DashboardFrame } from "./components/layout/DashboardFrame";
 import "./index.css";
@@ -28,9 +28,9 @@ export default function App() {
     }).catch((error) => console.error("Could not load dashboard plugins", error));
     return () => { active = false; contexts.forEach((context) => context.dispose()); };
   }, []);
-  return <I18nProvider dictionary={dictionary}><BrowserRouter>{loaded ? <Routes>{routes.map(({ path, component: Component, shell }) => {
+  return <ThemeProvider><I18nProvider dictionary={dictionary}><BrowserRouter>{loaded ? <Routes>{routes.map(({ path, component: Component, shell }) => {
     const page = <Component />;
     const content: ReactNode = shell === "dashboard" ? <DashboardFrame>{page}</DashboardFrame> : page;
     return <Route key={path} path={path} element={content} />;
-  })}</Routes> : null}</BrowserRouter></I18nProvider>;
+  })}</Routes> : null}</BrowserRouter></I18nProvider></ThemeProvider>;
 }
