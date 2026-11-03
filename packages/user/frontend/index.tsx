@@ -42,7 +42,7 @@ function AccountHomePage() {
               <div><CardTitle>{t("cloud.account.projects")}</CardTitle><CardDescription>{t("cloud.account.projectsDescription")}</CardDescription></div>
             </div>
           </CardHeader>
-          <CardContent><LinkButton href="/projects">{t("cloud.account.goToProjects")}<ArrowRight /></LinkButton></CardContent>
+          <CardContent><LinkButton href="/">{t("cloud.account.goToProjects")}<ArrowRight /></LinkButton></CardContent>
         </Card>
       </div>
     </div>
@@ -111,7 +111,7 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
-  ctx.navigation({ id: "account", label: "Account", labelKey: "cloud.account.nav.account", path: "/", icon: UserRound, order: 90 });
-  ctx.route({ path: "/", component: AccountHomePage, shell: "dashboard" });
+  ctx.navigation({ id: "account", label: "Account", labelKey: "cloud.account.nav.account", path: "/account", icon: UserRound, order: 90, paths: ["/account", "/account/profile"] });
+  ctx.route({ path: "/account", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });
 }
