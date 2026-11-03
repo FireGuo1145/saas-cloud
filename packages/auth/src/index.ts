@@ -80,10 +80,37 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
   const enabled = pluginConfig?.loginEnabled !== false;
   const registrationEnabled = pluginConfig?.registrationEnabled !== false;
 
-  ctx.i18n({ auth: { config: {
-    loginEnabled: { zh: "允许账号密码登录", en: "Enable password login" },
-    registrationEnabled: { zh: "允许公开注册", en: "Allow public registration" }
-  } } });
+  ctx.i18n({ cloud: { auth: {
+    loginTitle: { zh: "登录", en: "Sign in", ja: "ログイン" },
+    loginDescription: { zh: "访问你的 Mirelia 账户。", en: "Access your Mirelia account.", ja: "Mirelia アカウントにアクセスします。" },
+    identifier: { zh: "邮箱或用户名", en: "Email or username", ja: "メールアドレスまたはユーザー名" },
+    password: { zh: "密码", en: "Password", ja: "パスワード" },
+    login: { zh: "登录", en: "Sign in", ja: "ログイン" },
+    loggingIn: { zh: "正在登录…", en: "Signing in…", ja: "ログイン中…" },
+    loginUnavailable: { zh: "密码登录当前不可用。", en: "Password login is unavailable.", ja: "パスワードログインは現在利用できません。" },
+    newHere: { zh: "还没有账户？", en: "New here?", ja: "初めてですか？" },
+    createAccount: { zh: "创建账户", en: "Create an account", ja: "アカウントを作成" },
+    registerTitle: { zh: "创建账户", en: "Create an account", ja: "アカウントを作成" },
+    registerDescription: { zh: "创建你的 Mirelia 账户。", en: "Set up your Mirelia account.", ja: "Mirelia アカウントを作成します。" },
+    username: { zh: "用户名", en: "Username", ja: "ユーザー名" },
+    email: { zh: "邮箱", en: "Email", ja: "メールアドレス" },
+    registering: { zh: "正在创建账户…", en: "Creating account…", ja: "アカウントを作成中…" },
+    alreadyRegistered: { zh: "已有账户？", en: "Already registered?", ja: "すでに登録済みですか？" },
+    signIn: { zh: "登录", en: "Sign in", ja: "ログイン" },
+    errors: {
+      loginDisabled: { zh: "密码登录已关闭", en: "Password login is disabled", ja: "パスワードログインは無効です" },
+      invalidBody: { zh: "请求内容无效", en: "Invalid request body", ja: "リクエスト内容が無効です" },
+      required: { zh: "请输入邮箱/用户名和密码", en: "Identifier and password are required", ja: "メールアドレスまたはユーザー名とパスワードを入力してください" },
+      credentials: { zh: "账号或密码错误", en: "Invalid credentials", ja: "認証情報が正しくありません" },
+      registrationDisabled: { zh: "注册已关闭", en: "Registration is disabled", ja: "登録は無効です" },
+      invalidRegistration: { zh: "请输入有效邮箱、至少 2 个字符的用户名和至少 12 位密码", en: "Use a valid email, a username of at least 2 characters, and a password of at least 12 characters", ja: "有効なメールアドレス、2 文字以上のユーザー名、12 文字以上のパスワードを入力してください" },
+      createAccountFailed: { zh: "无法创建账户", en: "Could not create account", ja: "アカウントを作成できませんでした" },
+      authRequired: { zh: "请先登录", en: "Authentication is required", ja: "ログインしてください" },
+    },
+    config: {
+      loginEnabled: { zh: "允许账号密码登录", en: "Enable password login", ja: "パスワードログインを有効にする" },
+      registrationEnabled: { zh: "允许公开注册", en: "Allow public registration", ja: "公開登録を許可する" },
+  } } } });
 
   const service: AuthService = {
     enabled: () => enabled,
@@ -97,35 +124,35 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
   });
 
   ctx.route("/api/auth/login").methods("POST").action(async (session) => {
-    if (!enabled) return respondError(session, 404, "Password login is disabled");
+    if (!enabled) return respondError(session, 404, session.text("cloud.auth.errors.loginDisabled"));
     let body: Record<string, unknown>;
     try {
       body = await session.parseRequestBody() as Record<string, unknown>;
     } catch {
-      return respondError(session, 400, "Invalid request body");
+      return respondError(session, 400, session.text("cloud.auth.errors.invalidBody"));
     }
     const identifier = readString(body, "identifier");
     const password = typeof body.password === "string" ? body.password : "";
-    if (!identifier || !password) return respondError(session, 400, "Identifier and password are required");
+    if (!identifier || !password) return respondError(session, 400, session.text("cloud.auth.errors.required"));
     const user = await users.authenticate(identifier, password);
-    if (!user) return respondError(session, 401, "Invalid credentials");
+    if (!user) return respondError(session, 401, session.text("cloud.auth.errors.credentials"));
     await users.establishSession(session, user);
     session.respond({ user: publicUser(user), returnTo: safeReturnTo(body.returnTo) }, "json");
   });
 
   ctx.route("/api/auth/register").methods("POST").action(async (session) => {
-    if (!enabled || !registrationEnabled) return respondError(session, 403, "Registration is disabled");
+    if (!enabled || !registrationEnabled) return respondError(session, 403, session.text("cloud.auth.errors.registrationDisabled"));
     let body: Record<string, unknown>;
     try {
       body = await session.parseRequestBody() as Record<string, unknown>;
     } catch {
-      return respondError(session, 400, "Invalid request body");
+      return respondError(session, 400, session.text("cloud.auth.errors.invalidBody"));
     }
     const username = readString(body, "username");
     const email = readString(body, "email").toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
     if (username.length < 2 || !/^\S+@\S+\.\S+$/.test(email) || password.length < 12) {
-      return respondError(session, 400, "Use a valid email, a username of at least 2 characters, and a password of at least 12 characters");
+      return respondError(session, 400, session.text("cloud.auth.errors.invalidRegistration"));
     }
     try {
       const user = await users.register({ username, email, password });
@@ -133,7 +160,7 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
       session.status = 201;
       session.respond({ user: publicUser(user), returnTo: safeReturnTo(body.returnTo) }, "json");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not create account";
+      const message = session.text("cloud.auth.errors.createAccountFailed");
       respondError(session, 409, message);
     }
   });
@@ -150,7 +177,7 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
     if (current) return next();
 
     if (expectsJson(session)) {
-      return respondError(session, 401, "Authentication is required");
+      return respondError(session, 401, session.text("cloud.auth.errors.authRequired"));
     }
     session.status = 302;
     session.head.location = `/login?returnTo=${encodeURIComponent(session.pathname)}`;

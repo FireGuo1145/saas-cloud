@@ -5,6 +5,9 @@ export { DropdownMenu, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, D
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
 export { Input } from "./components/ui/input";
 export { Label } from "./components/ui/label";
+export { I18nProvider, useI18n } from "./lib/i18n";
+export type { I18nDictionary, Language } from "./lib/i18n";
+export { LanguageSwitcher } from "./components/LanguageSwitcher";
 export { DashboardContext, dashboardExtension, defineExtension, registeredNavigation, registeredRoutes, registeredTopBar, subscribeExtensions, useNavigation, useRoutes, useTopBar } from "./extension";
 export type { DashboardExtensionApi, DashboardNavigationItem, DashboardRoute, DashboardTopBarItem } from "./extension";
 export * from "./vendor";

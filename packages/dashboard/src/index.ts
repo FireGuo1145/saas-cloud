@@ -24,6 +24,23 @@ function mime(file: string) {
 }
 
 export async function apply(ctx: Context) {
+  ctx.i18n({ cloud: {
+    common: {
+      language: { zh: "语言", en: "Language", ja: "言語" },
+      loading: { zh: "加载中…", en: "Loading…", ja: "読み込み中…" },
+      save: { zh: "保存", en: "Save", ja: "保存" },
+      saving: { zh: "保存中…", en: "Saving…", ja: "保存中…" },
+      cancel: { zh: "取消", en: "Cancel", ja: "キャンセル" },
+      create: { zh: "创建", en: "Create", ja: "作成" },
+      creating: { zh: "创建中…", en: "Creating…", ja: "作成中…" },
+      retry: { zh: "重试", en: "Retry", ja: "再試行" },
+    },
+    nav: {
+      workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
+      project: { zh: "项目", en: "Project", ja: "プロジェクト" },
+      mainNavigation: { zh: "主导航", en: "Main navigation", ja: "メインナビゲーション" },
+    },
+  } });
   const entries = new Map<string, DashboardEntry>();
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const resolveAsset = (entry: DashboardEntry) => path.resolve(root, entry.prod);
@@ -37,7 +54,7 @@ export async function apply(ctx: Context) {
   };
   ctx.registerComponent("dashboard", dashboard);
   ctx.route("/api/dashboard/manifest").methods("GET").action((session: Session) => {
-    session.respond({ revision: String(entries.size), entries: [...entries.values()].map((entry) => ({ id: entry.id, plugin: entry.plugin, files: [{ id: entry.id, mime: "application/javascript; charset=utf-8", url: `/api/static/plugin?file=${encodeURIComponent(entry.id)}` }] })) }, "json");
+    session.respond({ revision: String(entries.size), entries: [...entries.values()].map((entry) => ({ id: entry.id, plugin: entry.plugin, files: [{ id: entry.id, mime: "application/javascript; charset=utf-8", url: `/api/static/plugin?file=${encodeURIComponent(entry.id)}` }] })), i18n: ctx.getCore().i18n.all() }, "json");
   });
   ctx.route("/api/static/plugin").methods("GET").action((session: Session, query: URLSearchParams) => {
     const entry = entries.get(query.get("file") ?? "");

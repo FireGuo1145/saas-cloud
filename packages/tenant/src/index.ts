@@ -166,18 +166,23 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
   }
   ctx.i18n({ tenant: {
     config: { defaultTenantName: { zh: "新用户默认租户名称", en: "Default tenant name", ja: "新規ユーザーのデフォルトテナント名" } },
+    errors: {
+      authRequired: { zh: "请先登录", en: "Authentication is required", ja: "ログインしてください" },
+      notFound: { zh: "未找到工作区", en: "Workspace not found", ja: "ワークスペースが見つかりません" },
+      invalid: { zh: "工作区信息无效", en: "Invalid workspace", ja: "ワークスペース情報が無効です" },
+    },
   } });
 
   ctx.route("/api/tenant/current").methods("GET").action(async (session: Session) => {
     if (!await users.current(session)) {
       session.status = 401;
-      session.respond({ error: "Authorization is required" }, "json");
+      session.respond({ error: session.text("tenant.errors.authRequired") }, "json");
       return;
     }
     const tenant = await service.current(session);
     if (!tenant) {
       session.status = 404;
-      session.respond({ error: "Tenant not found" }, "json");
+      session.respond({ error: session.text("tenant.errors.notFound") }, "json");
       return;
     }
     session.respond({ tenant }, "json");
@@ -187,7 +192,7 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
     const user = await users.current(session);
     if (!user?.id) {
       session.status = 401;
-      session.respond({ error: "Authorization is required" }, "json");
+      session.respond({ error: session.text("tenant.errors.authRequired") }, "json");
       return;
     }
     session.respond({ tenants: await service.listForUser(user.id) }, "json");
@@ -196,7 +201,7 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
     const user = await users.current(session);
     if (!user?.id) {
       session.status = 401;
-      session.respond({ error: "Authorization is required" }, "json");
+      session.respond({ error: session.text("tenant.errors.authRequired") }, "json");
       return;
     }
     try {
@@ -206,7 +211,7 @@ export async function apply(ctx: Context, pluginConfig: { defaultTenantName?: st
       session.respond({ tenant }, "json");
     } catch (error) {
       session.status = 400;
-      session.respond({ error: error instanceof Error ? error.message : "Invalid tenant" }, "json");
+      session.respond({ error: session.text("tenant.errors.invalid") }, "json");
     }
   });
 }

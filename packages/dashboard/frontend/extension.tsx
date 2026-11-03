@@ -1,7 +1,7 @@
 import { useSyncExternalStore, type ComponentType } from "react";
 
 export interface DashboardRoute { path: string; component: ComponentType; shell?: "owned" | "dashboard" }
-export interface DashboardNavigationItem { id: string; label: string; path: string; icon: ComponentType<{ className?: string }>; order?: number; group?: string; paths?: string[] }
+export interface DashboardNavigationItem { id: string; label: string; labelKey?: string; path: string; icon: ComponentType<{ className?: string }>; order?: number; group?: string; groupKey?: string; paths?: string[] }
 export interface DashboardTopBarItem { id: string; component: ComponentType; paths?: string[] }
 export interface DashboardExtensionApi {
   route(route: DashboardRoute): () => void;

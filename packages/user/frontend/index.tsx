@@ -2,6 +2,7 @@ import { ArrowRight, FolderKanban, UserRound } from "lucide-react";
 import type { DashboardContext } from "@mirelia/dashboard/frontend";
 import { api, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, LinkButton } from "@mirelia/dashboard/frontend";
 import { useEffect, useState, type FormEvent } from "react";
+import { useI18n } from "@mirelia/dashboard/frontend";
 
 interface Profile {
   id: number;
@@ -11,6 +12,7 @@ interface Profile {
 }
 
 function AccountHomePage() {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   useEffect(() => {
     void api.get("/user/me").then((response) => setProfile(response.data as Profile));
@@ -19,28 +21,28 @@ function AccountHomePage() {
   return (
     <div className="mx-auto w-full max-w-6xl p-5 sm:p-8">
       <div className="border-b border-border pb-5">
-        <p className="mb-1 text-sm text-muted-foreground">Account</p>
-        <h1 className="text-2xl font-semibold">{profile ? `Welcome, ${profile.username}` : "Account home"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Your account and workspace overview.</p>
+        <p className="mb-1 text-sm text-muted-foreground">{t("cloud.account.title")}</p>
+        <h1 className="text-2xl font-semibold">{profile ? t("cloud.account.welcome", { username: profile.username }) : t("cloud.account.home")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("cloud.account.overview")}</p>
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <UserRound className="size-5 text-muted-foreground" />
-              <div><CardTitle>Account profile</CardTitle><CardDescription>{profile?.email || "Manage your account details."}</CardDescription></div>
+              <div><CardTitle>{t("cloud.account.profile")}</CardTitle><CardDescription>{profile?.email || t("cloud.account.profileDescription")}</CardDescription></div>
             </div>
           </CardHeader>
-          <CardContent><LinkButton variant="outline" href="/account/profile">Manage account<ArrowRight /></LinkButton></CardContent>
+          <CardContent><LinkButton variant="outline" href="/account/profile">{t("cloud.account.manageAccount")}<ArrowRight /></LinkButton></CardContent>
         </Card>
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <FolderKanban className="size-5 text-muted-foreground" />
-              <div><CardTitle>Projects</CardTitle><CardDescription>Open and manage your cloud projects.</CardDescription></div>
+              <div><CardTitle>{t("cloud.account.projects")}</CardTitle><CardDescription>{t("cloud.account.projectsDescription")}</CardDescription></div>
             </div>
           </CardHeader>
-          <CardContent><LinkButton href="/projects">Go to projects<ArrowRight /></LinkButton></CardContent>
+          <CardContent><LinkButton href="/projects">{t("cloud.account.goToProjects")}<ArrowRight /></LinkButton></CardContent>
         </Card>
       </div>
     </div>
@@ -48,6 +50,7 @@ function AccountHomePage() {
 }
 
 function ProfilePage() {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -64,9 +67,9 @@ function ProfilePage() {
     try {
       const response = await api.put("/user/me", profile);
       setProfile(response.data as Profile);
-      setMessage("Account details saved.");
+      setMessage(t("cloud.account.saved"));
     } catch {
-      setMessage("Could not save account details.");
+      setMessage(t("cloud.account.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -79,8 +82,8 @@ function ProfilePage() {
           <div className="flex items-center gap-3">
             <UserRound className="size-5 text-muted-foreground" />
             <div>
-              <CardTitle>Account profile</CardTitle>
-              <CardDescription>Manage your account identity.</CardDescription>
+              <CardTitle>{t("cloud.account.profile")}</CardTitle>
+              <CardDescription>{t("cloud.account.profileDescription")}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -88,18 +91,18 @@ function ProfilePage() {
           {profile ? (
             <form className="space-y-5" onSubmit={(event) => void save(event)}>
               <div className="space-y-2">
-                <Label htmlFor="profile-username">Username</Label>
+                <Label htmlFor="profile-username">{t("cloud.account.username")}</Label>
                 <Input id="profile-username" autoComplete="username" value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="profile-email">Email</Label>
+                <Label htmlFor="profile-email">{t("cloud.account.email")}</Label>
                 <Input id="profile-email" type="email" autoComplete="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} />
               </div>
               {message && <p className="text-sm text-muted-foreground" role="status">{message}</p>}
-              <Button type="submit" disabled={busy}>{busy ? "Saving..." : "Save changes"}</Button>
+              <Button type="submit" isDisabled={busy}>{busy ? t("cloud.common.saving") : t("cloud.common.save")}</Button>
             </form>
           ) : (
-            <p className="text-sm text-muted-foreground">Loading account...</p>
+            <p className="text-sm text-muted-foreground">{t("cloud.common.loading")}</p>
           )}
         </CardContent>
       </Card>
@@ -108,7 +111,7 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
-  ctx.navigation({ id: "account", label: "Account", path: "/", icon: UserRound, order: 90 });
+  ctx.navigation({ id: "account", label: "Account", labelKey: "cloud.account.nav.account", path: "/", icon: UserRound, order: 90 });
   ctx.route({ path: "/", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });
 }

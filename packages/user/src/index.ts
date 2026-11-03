@@ -94,6 +94,29 @@ export const config: Schema<UserConfig> = Schema.object({
 });
 
 export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUsername: "", adminEmail: "", adminPassword: "" }) {
+  ctx.i18n({ cloud: { account: {
+    nav: { account: { zh: "账户", en: "Account", ja: "アカウント" } },
+    title: { zh: "账户", en: "Account", ja: "アカウント" },
+    home: { zh: "账户首页", en: "Account home", ja: "アカウントホーム" },
+    welcome: { zh: "欢迎，{username}", en: "Welcome, {username}", ja: "ようこそ、{username} さん" },
+    overview: { zh: "账户与工作区概览。", en: "Your account and workspace overview.", ja: "アカウントとワークスペースの概要です。" },
+    profile: { zh: "账户资料", en: "Account profile", ja: "アカウントプロフィール" },
+    manageIdentity: { zh: "管理账户身份信息。", en: "Manage your account identity.", ja: "アカウント情報を管理します。" },
+    manageAccount: { zh: "管理账户", en: "Manage account", ja: "アカウントを管理" },
+    projects: { zh: "项目", en: "Projects", ja: "プロジェクト" },
+    projectsDescription: { zh: "打开并管理云项目。", en: "Open and manage your cloud projects.", ja: "クラウドプロジェクトを開いて管理します。" },
+    goToProjects: { zh: "前往项目", en: "Go to projects", ja: "プロジェクトへ" },
+    profileDescription: { zh: "管理账户身份信息。", en: "Manage your account identity.", ja: "アカウント情報を管理します。" },
+    username: { zh: "用户名", en: "Username", ja: "ユーザー名" },
+    email: { zh: "邮箱", en: "Email", ja: "メールアドレス" },
+    saved: { zh: "账户资料已保存。", en: "Account details saved.", ja: "アカウント情報を保存しました。" },
+    saveFailed: { zh: "无法保存账户资料。", en: "Could not save account details.", ja: "アカウント情報を保存できませんでした。" },
+    errors: {
+      authRequired: { zh: "请先登录", en: "Authentication is required", ja: "ログインしてください" },
+      invalidRequest: { zh: "请求内容无效", en: "Invalid request", ja: "リクエスト内容が無効です" },
+      accountExists: { zh: "用户名或邮箱已被使用", en: "The username or email is already in use", ja: "ユーザー名またはメールアドレスはすでに使用されています" },
+    },
+  } } });
   ctx.component.dashboard.addEntry({
     id: "user",
     dev: fileURLToPath(new URL("../frontend/index.tsx", import.meta.url)),
@@ -298,7 +321,7 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
       const user = session.properties.user as User | undefined;
       if (user) return user;
       session.status = 401;
-      session.respond({ error: "authentication_required" }, "json");
+      session.respond({ error: session.text("cloud.account.errors.authRequired") }, "json");
       return undefined;
     },
   };
@@ -328,7 +351,10 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
     } catch (error) {
       const code = error instanceof Error ? error.message : "invalid_request";
       session.status = code === "account_exists" ? 409 : 400;
-      session.respond({ error: code }, "json");
+      const message = code === "account_exists"
+        ? session.text("cloud.account.errors.accountExists")
+        : session.text("cloud.account.errors.invalidRequest");
+      session.respond({ error: message }, "json");
     }
   });
 

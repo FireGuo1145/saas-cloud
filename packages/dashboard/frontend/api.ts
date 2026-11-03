@@ -1,9 +1,17 @@
 export const apiURL = (path: string) => path.startsWith("/") ? path : `/${path}`;
+function requestLanguage() {
+  if (typeof window === "undefined") return "zh";
+  const language = localStorage.getItem("language") || navigator.language.slice(0, 2).toLowerCase();
+  return language === "zh" || language === "en" || language === "ja" ? language : "zh";
+}
 async function request<T>(method: string, path: string, body?: unknown): Promise<{ data: T }> {
   const response = await fetch(apiURL(path), {
     method,
     credentials: "same-origin",
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers: {
+      "accept-language": requestLanguage(),
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await response.json().catch(() => undefined) as T & { error?: string };

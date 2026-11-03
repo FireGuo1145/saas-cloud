@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Badge, Button, Input, Label, api } from "@mirelia/dashboard/frontend";
+import { Badge, Button, Input, Label, api, useI18n } from "@mirelia/dashboard/frontend";
 import { Check, CircleDot, Save, Settings2 } from "lucide-react";
 
 interface Project { id: number; project_id: string; name: string; description: string; status: string; created_at: string; updated_at: string }
@@ -10,6 +10,7 @@ type Permission = "view" | "edit" | "manage_members" | "manage_fields";
 interface ProjectPayload { project: Project; fieldGroups: FieldGroup[]; permissions: Permission[] }
 
 export default function ProjectDetailsPage() {
+  const { t, language } = useI18n();
   const { id } = useParams();
   const [project, setProject] = useState<Project>();
   const [projectName, setProjectName] = useState("");
@@ -35,7 +36,7 @@ export default function ProjectDetailsPage() {
 
   useEffect(() => {
     setLoading(true);
-    void load().catch((cause) => setError(cause instanceof Error ? cause.message : "Project could not be loaded.")).finally(() => setLoading(false));
+    void load().catch((cause) => setError(cause instanceof Error ? cause.message : t("cloud.project.errors.projectLoad"))).finally(() => setLoading(false));
   }, [id]);
 
   async function saveValues() {
@@ -43,8 +44,8 @@ export default function ProjectDetailsPage() {
     try {
       await api.put(`/projects/${id}/fields`, { values });
       await load();
-      setMessage("Project fields saved.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save project fields."); }
+      setMessage(t("cloud.project.fieldsSaved"));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("cloud.project.errors.saveFields")); }
     finally { setSaving(false); }
   }
 
@@ -54,37 +55,37 @@ export default function ProjectDetailsPage() {
     try {
       const response = await api.put<{ project: Project }>(`/projects/${id}`, { name: projectName, description: projectDescription });
       setProject(response.data.project);
-      setMessage("Project details saved.");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save project details."); }
+      setMessage(t("cloud.project.detailsSaved"));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("cloud.project.errors.saveDetails")); }
     finally { setSaving(false); }
   }
 
-  if (loading) return <div className="mx-auto max-w-6xl p-8 text-sm text-muted-foreground">Loading project...</div>;
-  if (!project) return <div className="mx-auto max-w-6xl p-8"><p role="alert" className="text-sm text-destructive">{error || "Project not found."}</p></div>;
+  if (loading) return <div className="mx-auto max-w-6xl p-8 text-sm text-muted-foreground">{t("cloud.common.loading")}</div>;
+  if (!project) return <div className="mx-auto max-w-6xl p-8"><p role="alert" className="text-sm text-destructive">{error || t("cloud.project.errors.notFound")}</p></div>;
 
   return (
     <div className="mx-auto w-full max-w-6xl p-5 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
-        <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground"><span>Projects</span><span>/</span><span className="truncate">{project.project_id}</span></div><h1 className="truncate text-2xl font-semibold">{project.name}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">{project.description || "Project details and extensible metadata."}</p></div>
-        <Badge variant={project.status === "active" ? "secondary" : "outline"}><CircleDot className="size-3" />{project.status}</Badge>
+        <div className="min-w-0"><div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground"><span>{t("cloud.project.nav.projects")}</span><span>/</span><span className="truncate">{project.project_id}</span></div><h1 className="truncate text-2xl font-semibold">{project.name}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">{project.description || t("cloud.project.manageDetailsFields")}</p></div>
+        <Badge variant={project.status === "active" ? "secondary" : "outline"}><CircleDot className="size-3" />{t(`cloud.project.statusValues.${project.status}`)}</Badge>
       </div>
 
       <section className="border-b border-border py-6">
-        <div className="mb-4 flex items-center gap-2"><Settings2 className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Project details</h2></div>
+        <div className="mb-4 flex items-center gap-2"><Settings2 className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">{t("cloud.project.details")}</h2></div>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Detail label="Project ID" value={project.project_id} />
-          <div className="space-y-2"><Label htmlFor="project-name-edit">Project name</Label><Input id="project-name-edit" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} isDisabled={!permissions.includes("edit")} /></div>
-          <Detail label="Status" value={project.status} />
-          <Detail label="Created" value={new Date(project.created_at).toLocaleString()} />
-          <Detail label="Last updated" value={new Date(project.updated_at).toLocaleString()} />
-          <div className="space-y-2"><Label htmlFor="project-description-edit">Description</Label><Input id="project-description-edit" value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} maxLength={2000} isDisabled={!permissions.includes("edit")} /></div>
+          <Detail label={t("cloud.project.projectId")} value={project.project_id} />
+          <div className="space-y-2"><Label htmlFor="project-name-edit">{t("cloud.project.projectName")}</Label><Input id="project-name-edit" value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={120} isDisabled={!permissions.includes("edit")} /></div>
+          <Detail label={t("cloud.project.status")} value={t(`cloud.project.statusValues.${project.status}`)} />
+          <Detail label={t("cloud.project.created")} value={new Date(project.created_at).toLocaleString(language)} />
+          <Detail label={t("cloud.project.lastUpdated")} value={new Date(project.updated_at).toLocaleString(language)} />
+          <div className="space-y-2"><Label htmlFor="project-description-edit">{t("cloud.project.projectDescription")}</Label><Input id="project-description-edit" value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} maxLength={2000} isDisabled={!permissions.includes("edit")} /></div>
         </div>
-        {permissions.includes("edit") && <div className="mt-4 flex justify-end"><Button variant="outline" onPress={() => void saveProject()} isDisabled={saving || !projectName.trim()}><Save />Save project</Button></div>}
+        {permissions.includes("edit") && <div className="mt-4 flex justify-end"><Button variant="outline" onPress={() => void saveProject()} isDisabled={saving || !projectName.trim()}><Save />{t("cloud.project.saveProject")}</Button></div>}
       </section>
 
       <section className="py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-sm font-semibold">Plugin fields</h2><p className="mt-1 text-sm text-muted-foreground">Fields are provided by installed plugins.</p></div>
+          <div><h2 className="text-sm font-semibold">{t("cloud.project.pluginFields")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("cloud.project.fieldsProvidedByPlugins")}</p></div>
         </div>
         {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
         {groups.length ? <div className="space-y-8">
@@ -95,10 +96,10 @@ export default function ProjectDetailsPage() {
                 <Label htmlFor={`field-${field.id}`}>{field.label}{field.required && <span className="ml-1 text-destructive">*</span>}</Label>
                 <FieldEditor field={field} value={values[field.id] ?? ""} disabled={!permissions.includes("manage_fields")} onChange={(value) => setValues((current) => ({ ...current, [field.id]: value }))} />
               </div>)}
-            </div> : <p className="text-sm text-muted-foreground">No fields provided by this plugin.</p>}
+            </div> : <p className="text-sm text-muted-foreground">{t("cloud.project.noFieldsFromPlugin")}</p>}
           </div>)}
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">{message && <p role="status" className="mr-auto text-sm text-muted-foreground"><Check className="mr-1 inline size-4" />{message}</p>}{permissions.includes("manage_fields") && <Button onPress={() => void saveValues()} isDisabled={saving}><Save />{saving ? "Saving..." : "Save fields"}</Button>}</div>
-        </div> : <div className="border-y border-border py-10 text-center"><p className="text-sm font-medium">No plugin fields</p><p className="mt-1 text-sm text-muted-foreground">Installed plugins can provide project configuration fields.</p></div>}
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">{message && <p role="status" className="mr-auto text-sm text-muted-foreground"><Check className="mr-1 inline size-4" />{message}</p>}{permissions.includes("manage_fields") && <Button onPress={() => void saveValues()} isDisabled={saving}><Save />{saving ? t("cloud.common.saving") : t("cloud.project.saveFields")}</Button>}</div>
+        </div> : <div className="border-y border-border py-10 text-center"><p className="text-sm font-medium">{t("cloud.project.noPluginFields")}</p><p className="mt-1 text-sm text-muted-foreground">{t("cloud.project.installedPluginsFields")}</p></div>}
       </section>
     </div>
   );
@@ -109,7 +110,8 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function FieldEditor({ field, value, disabled, onChange }: { field: ProjectField; value: unknown; disabled: boolean; onChange(value: unknown): void }) {
-  if (field.type === "boolean") return <Button type="button" isDisabled={disabled} variant={value === true ? "secondary" : "outline"} className="justify-start" onPress={() => onChange(value !== true)}>{value === true ? <Check /> : <span className="size-4" />}{value === true ? "Enabled" : "Disabled"}</Button>;
+  const { t } = useI18n();
+  if (field.type === "boolean") return <Button type="button" isDisabled={disabled} variant={value === true ? "secondary" : "outline"} className="justify-start" onPress={() => onChange(value !== true)}>{value === true ? <Check /> : <span className="size-4" />}{value === true ? t("cloud.project.enabled") : t("cloud.project.disabled")}</Button>;
   if (field.type === "select") return <div className="flex flex-wrap gap-2">{field.options.map((option) => <Button key={option} type="button" isDisabled={disabled} size="sm" variant={value === option ? "secondary" : "outline"} onPress={() => onChange(value === option ? "" : option)}>{option}</Button>)}</div>;
   const type = field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "url" ? "url" : "text";
   return <Input id={`field-${field.id}`} type={type} isDisabled={disabled} value={String(value ?? "")} onChange={(event) => onChange(field.type === "number" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value)} />;
