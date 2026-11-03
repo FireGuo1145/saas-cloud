@@ -8,6 +8,7 @@ import "@mirelia/user";
 import "@mirelia/tenant";
 
 export type ProjectFieldType = "text" | "number" | "boolean" | "date" | "url" | "select";
+const projectFieldTypes: ProjectFieldType[] = ["text", "number", "boolean", "date", "url", "select"];
 
 export interface Project {
   id?: number;
@@ -24,6 +25,7 @@ export interface Project {
 export interface ProjectFieldGroup {
   id?: number;
   tenant_id: number;
+  plugin_id?: string;
   key: string;
   name: string;
   sort_order: number;
@@ -64,6 +66,20 @@ export interface ProjectMember {
   updated_at: string;
 }
 
+export interface ProjectFieldDefinition {
+  key: string;
+  label: string;
+  type: ProjectFieldType;
+  required?: boolean;
+  options?: string[];
+}
+
+export interface ProjectFieldGroupDefinition {
+  key: string;
+  name: string;
+  fields: ProjectFieldDefinition[];
+}
+
 declare module "@yumerijs/types" {
   interface Tables {
     projects: Project;
@@ -85,6 +101,7 @@ declare module "yumeri" {
 export interface ProjectService {
   list(tenantId: number): Promise<Project[]>;
   find(tenantId: number, projectId: number): Promise<Project | undefined>;
+  registerFieldGroup(pluginId: string, definition: ProjectFieldGroupDefinition): Promise<void>;
 }
 
 function respondError(session: Session, status: number, error: string) {
@@ -123,6 +140,7 @@ export async function apply(ctx: Context) {
   await db.extend("project_field_groups", {
     id: { type: "integer", autoIncrement: true },
     tenant_id: { type: "integer", nullable: false },
+    plugin_id: { type: "string", nullable: true },
     key: { type: "string", nullable: false },
     name: { type: "string", nullable: false },
     sort_order: { type: "integer", initial: 0, nullable: false },
@@ -177,6 +195,50 @@ export async function apply(ctx: Context) {
   const service: ProjectService = {
     list: async (tenantId) => db.select("projects", { tenant_id: tenantId, status: "active" }) as Promise<Project[]>,
     find: (tenantId, id) => db.selectOne("projects", { tenant_id: tenantId, id }) as Promise<Project | undefined>,
+    async registerFieldGroup(pluginId, definition) {
+      const source = pluginId.trim();
+      const key = definition.key.trim().toLowerCase();
+      const name = definition.name.trim().slice(0, 100);
+      if (!source || !/^[a-z][a-z0-9_-]{1,62}$/.test(key) || !name) throw new Error("Invalid plugin project field group");
+      if (!Array.isArray(definition.fields)) throw new Error("Invalid plugin project field group");
+      const pluginKey = slugify(source).replace(/-/g, "_");
+      if (!pluginKey) throw new Error("Invalid project field plugin id");
+      const groupKey = `${pluginKey}__${key}`;
+      if (groupKey.length > 100) throw new Error("Invalid plugin project field group");
+      const normalizedFields = definition.fields.map((field) => {
+        const fieldKey = field.key.trim().toLowerCase();
+        const label = field.label.trim().slice(0, 100);
+        const options = Array.isArray(field.options) ? field.options.map((option) => option.trim()).filter(Boolean).slice(0, 50) : [];
+        if (!/^[a-z][a-z0-9_]{1,62}$/.test(fieldKey) || !projectFieldTypes.includes(field.type) || !label) throw new Error(`Invalid project field definition: ${field.key}`);
+        if (field.type === "select" && !options.length) throw new Error(`Select field ${fieldKey} requires options`);
+        return { key: fieldKey, label, type: field.type, required: field.required === true, options };
+      });
+      if (new Set(normalizedFields.map((field) => field.key)).size !== normalizedFields.length) throw new Error("Duplicate project field keys in plugin definition");
+      let group = await db.selectOne("project_field_groups", { tenant_id: 0, key: groupKey }) as ProjectFieldGroup | undefined;
+      const now = new Date().toISOString();
+      if (!group) {
+        group = await db.create("project_field_groups", {
+          tenant_id: 0, plugin_id: source, key: groupKey, name, sort_order: 0, created_at: now, updated_at: now,
+        }) as ProjectFieldGroup;
+      } else {
+        const existingPlugin = group.plugin_id;
+        if (existingPlugin && existingPlugin !== source) throw new Error(`Project field group key is already registered by ${existingPlugin}`);
+        await db.update("project_field_groups", { id: group.id }, { plugin_id: source, name, updated_at: now });
+      }
+      const fields = await db.select("project_fields", { group_id: group.id }) as ProjectField[];
+      const existing = new Map(fields.map((field) => [field.key, field]));
+      const seen = new Set<string>();
+      for (const field of normalizedFields) {
+        seen.add(field.key);
+        const data = {
+          group_id: group.id!, key: field.key, label: field.label, type: field.type,
+          required: field.required, options_json: JSON.stringify(field.options), sort_order: seen.size - 1, updated_at: now,
+        };
+        const current = existing.get(field.key);
+        if (current) await db.update("project_fields", { id: current.id }, data);
+        else await db.create("project_fields", { ...data, created_at: now });
+      }
+    },
   };
   ctx.registerComponent("project", service);
 
@@ -211,14 +273,10 @@ export async function apply(ctx: Context) {
     return { user, tenant, project, permissions };
   }
 
-  async function canManageFields(userId: number, tenant: Tenant) {
-    return tenant.id ? tenants.canAccess(userId, tenant.id, "admin") : false;
-  }
-
   async function fieldGroups(tenantId: number, projectId: number) {
-    const groups = await db.select("project_field_groups", { tenant_id: tenantId }) as ProjectFieldGroup[];
+    const groups = await db.select("project_field_groups", { $or: [{ tenant_id: 0 }, { tenant_id: tenantId }] }) as ProjectFieldGroup[];
     const output = [];
-    for (const group of groups.sort((a, b) => a.sort_order - b.sort_order || a.id! - b.id!)) {
+    for (const group of groups.filter((group) => group.plugin_id).sort((a, b) => a.sort_order - b.sort_order || a.id! - b.id!)) {
       const fields = await db.select("project_fields", { group_id: group.id }) as ProjectField[];
       const values = await db.select("project_field_values", { project_id: projectId }) as ProjectFieldValue[];
       output.push({
@@ -298,7 +356,7 @@ export async function apply(ctx: Context) {
     const result = await requireProject(session, id);
     if ("error" in result) return respondError(session, result.status, result.error);
     const groups = await fieldGroups(result.tenant.id!, result.project.id!);
-    session.respond({ project: result.project, fieldGroups: groups, permissions: result.permissions, canManageFieldDefinitions: await canManageFields(result.user.id!, result.tenant) }, "json");
+    session.respond({ project: result.project, fieldGroups: groups, permissions: result.permissions }, "json");
   });
 
   ctx.route("/api/projects/:id").methods("PUT").action(async (session, _query, id) => {
@@ -339,9 +397,14 @@ export async function apply(ctx: Context) {
       } catch { /* Invalid stored permissions are treated as no access. */ }
       members.push({ id: user.id, username: user.username, email: user.email, permissions, isOwner: user.id === result.project.created_by });
     }
-    const allUsers = canManage ? await db.select("users", {}) as User[] : [];
+    const tenantMembers = canManage ? await db.select("tenant_memberships", { tenant_id: result.tenant.id }) as Array<{ user_id: number }> : [];
     const existingIds = new Set(memberships.map((membership) => membership.user_id));
-    const availableUsers = allUsers.filter((user) => user.id !== undefined && !existingIds.has(user.id)).map(({ id, username, email }) => ({ id, username, email }));
+    const availableUsers = [];
+    for (const tenantMember of tenantMembers) {
+      if (existingIds.has(tenantMember.user_id)) continue;
+      const user = await db.selectOne("users", { id: tenantMember.user_id }) as User | undefined;
+      if (user?.id !== undefined) availableUsers.push({ id: user.id, username: user.username, email: user.email });
+    }
     session.respond({ members, availableUsers, permissions: allPermissions, canManage }, "json");
   });
 
@@ -353,13 +416,11 @@ export async function apply(ctx: Context) {
       const userId = Number(body.userId);
       const permissions = Array.isArray(body.permissions) ? body.permissions.filter((permission): permission is ProjectPermission => allPermissions.includes(permission as ProjectPermission)) : ["view"];
       if (!Number.isInteger(userId) || userId < 1) return respondError(session, 400, "Choose a valid tenant user");
-      const user = await db.selectOne("users", { id: userId }) as User | undefined;
+      const tenantMembership = await db.selectOne("tenant_memberships", { tenant_id: result.tenant.id, user_id: userId });
+      const user = tenantMembership ? await db.selectOne("users", { id: userId }) as User | undefined : undefined;
       if (!user) return respondError(session, 404, "User is not a member of this workspace");
       if (await db.selectOne("project_members", { project_id: result.project.id, user_id: userId })) return respondError(session, 409, "User is already a project member");
       const now = new Date().toISOString();
-      if (!await db.selectOne("tenant_memberships", { tenant_id: result.tenant.id, user_id: userId })) {
-        await db.create("tenant_memberships", { tenant_id: result.tenant.id!, user_id: userId, role: "member", created_at: now, updated_at: now });
-      }
       await db.create("project_members", {
         project_id: result.project.id!, user_id: userId,
         permissions_json: JSON.stringify(permissions.includes("view") ? permissions : [...permissions, "view"]),
@@ -426,65 +487,15 @@ export async function apply(ctx: Context) {
     session.respond({ success: true }, "json");
   });
 
-  ctx.route("/api/project-field-groups").methods("POST").action(async (session) => {
-    const current = await scope(session);
-    if (!current) return respondError(session, 401, "Authorization is required");
-    if (!await canManageFields(current.user.id!, current.tenant)) return respondError(session, 403, "Tenant admin access is required to manage project fields");
-    try {
-      const body = record(await session.parseRequestBody());
-      const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
-      const requestedKey = typeof body.key === "string" ? body.key.trim().toLowerCase() : "";
-      const key = requestedKey || slugify(name).replace(/-/g, "_");
-      if (!name || !/^[a-z][a-z0-9_-]{1,62}$/.test(key)) return respondError(session, 400, "Provide a group name and a key with at least 2 valid characters");
-      if (await db.selectOne("project_field_groups", { tenant_id: current.tenant.id, key })) return respondError(session, 409, "A field group with this key already exists");
-      const now = new Date().toISOString();
-      const group = await db.create("project_field_groups", {
-        tenant_id: current.tenant.id!, key, name, sort_order: 0, created_at: now, updated_at: now,
-      });
-      session.status = 201;
-      session.respond({ group }, "json");
-    } catch (error) {
-      return respondError(session, 400, error instanceof Error ? error.message : "Invalid field group");
-    }
-  });
-
-  ctx.route("/api/project-field-groups/:groupId/fields").methods("POST").action(async (session, _query, groupId) => {
-    const current = await scope(session);
-    if (!current) return respondError(session, 401, "Authorization is required");
-    if (!await canManageFields(current.user.id!, current.tenant)) return respondError(session, 403, "Tenant admin access is required to manage project fields");
-    const group = await db.selectOne("project_field_groups", { id: Number(groupId), tenant_id: current.tenant.id }) as ProjectFieldGroup | undefined;
-    if (!group) return respondError(session, 404, "Field group not found");
-    try {
-      const body = record(await session.parseRequestBody());
-      const label = typeof body.label === "string" ? body.label.trim().slice(0, 100) : "";
-      const requestedKey = typeof body.key === "string" ? body.key.trim().toLowerCase() : "";
-      const key = requestedKey || slugify(label).replace(/-/g, "_");
-      const type = body.type as ProjectFieldType;
-      const types: ProjectFieldType[] = ["text", "number", "boolean", "date", "url", "select"];
-      const options = Array.isArray(body.options) ? body.options.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 50) : [];
-      if (!label || !/^[a-z][a-z0-9_]{1,62}$/.test(key) || !types.includes(type)) return respondError(session, 400, "Provide a field label, key, and valid type");
-      if (type === "select" && !options.length) return respondError(session, 400, "Select fields require at least one option");
-      if (await db.selectOne("project_fields", { group_id: group.id, key })) return respondError(session, 409, "A field with this key already exists in the group");
-      const now = new Date().toISOString();
-      const field = await db.create("project_fields", {
-        group_id: group.id!, key, label, type, required: body.required === true,
-        options_json: JSON.stringify(options), sort_order: 0, created_at: now, updated_at: now,
-      });
-      session.status = 201;
-      session.respond({ field: { ...field, options } }, "json");
-    } catch (error) {
-      return respondError(session, 400, error instanceof Error ? error.message : "Invalid project field");
-    }
-  });
-
   ctx.route("/api/projects/:id/fields").methods("PUT").action(async (session, _query, id) => {
     const result = await requireProject(session, id, "manage_fields");
     if ("error" in result) return respondError(session, result.status, result.error);
     try {
       const body = record(await session.parseRequestBody());
       const values = record(body.values);
-      const groups = await db.select("project_field_groups", { tenant_id: result.tenant.id }) as ProjectFieldGroup[];
-      const groupIds = groups.map((group) => group.id!);
+      const groups = await db.select("project_field_groups", { $or: [{ tenant_id: 0 }, { tenant_id: result.tenant.id }] }) as ProjectFieldGroup[];
+      const pluginGroups = groups.filter((group) => group.plugin_id);
+      const groupIds = pluginGroups.map((group) => group.id!);
       const definitions: ProjectField[] = [];
       for (const groupId of groupIds) definitions.push(...await db.select("project_fields", { group_id: groupId }) as ProjectField[]);
       const allowed = new Map(definitions.map((field) => [String(field.id), field]));

@@ -1,14 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Badge, Button, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, api } from "@mirelia/dashboard/frontend";
-import { Check, CircleDot, Plus, Save, Settings2 } from "lucide-react";
+import { Badge, Button, Input, Label, api } from "@mirelia/dashboard/frontend";
+import { Check, CircleDot, Save, Settings2 } from "lucide-react";
 
 interface Project { id: number; project_id: string; name: string; description: string; status: string; created_at: string; updated_at: string }
 interface ProjectField { id: number; key: string; label: string; type: "text" | "number" | "boolean" | "date" | "url" | "select"; required: boolean; options: string[]; value: unknown }
 interface FieldGroup { id: number; key: string; name: string; fields: ProjectField[] }
 type Permission = "view" | "edit" | "manage_members" | "manage_fields";
-interface ProjectPayload { project: Project; fieldGroups: FieldGroup[]; permissions: Permission[]; canManageFieldDefinitions: boolean }
-const fieldTypes = ["text", "number", "boolean", "date", "url", "select"] as const;
+interface ProjectPayload { project: Project; fieldGroups: FieldGroup[]; permissions: Permission[] }
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -22,17 +21,6 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [canManageFieldDefinitions, setCanManageFieldDefinitions] = useState(false);
-  const [groupOpen, setGroupOpen] = useState(false);
-  const [fieldOpen, setFieldOpen] = useState(false);
-  const [fieldGroup, setFieldGroup] = useState<FieldGroup>();
-  const [groupName, setGroupName] = useState("");
-  const [groupKey, setGroupKey] = useState("");
-  const [fieldLabel, setFieldLabel] = useState("");
-  const [fieldKey, setFieldKey] = useState("");
-  const [fieldType, setFieldType] = useState<(typeof fieldTypes)[number]>("text");
-  const [fieldOptions, setFieldOptions] = useState("");
-  const [fieldRequired, setFieldRequired] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -42,7 +30,6 @@ export default function ProjectDetailsPage() {
     setProjectDescription(response.data.project.description);
     setGroups(response.data.fieldGroups);
     setPermissions(response.data.permissions);
-    setCanManageFieldDefinitions(response.data.canManageFieldDefinitions);
     setValues(Object.fromEntries(response.data.fieldGroups.flatMap((group) => group.fields.map((field) => [field.id, field.value]))));
   }
 
@@ -50,28 +37,6 @@ export default function ProjectDetailsPage() {
     setLoading(true);
     void load().catch((cause) => setError(cause instanceof Error ? cause.message : "Project could not be loaded.")).finally(() => setLoading(false));
   }, [id]);
-
-  async function addGroup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    try {
-      await api.post("/project-field-groups", { name: groupName, key: groupKey });
-      setGroupName(""); setGroupKey(""); setGroupOpen(false); await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not add field group."); }
-  }
-
-  async function addField(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!fieldGroup) return;
-    setError("");
-    try {
-      await api.post(`/project-field-groups/${fieldGroup.id}/fields`, {
-        label: fieldLabel, key: fieldKey, type: fieldType, required: fieldRequired,
-        options: fieldOptions.split(",").map((value) => value.trim()).filter(Boolean),
-      });
-      setFieldLabel(""); setFieldKey(""); setFieldOptions(""); setFieldRequired(false); setFieldType("text"); setFieldOpen(false); await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not add field."); }
-  }
 
   async function saveValues() {
     setSaving(true); setError(""); setMessage("");
@@ -119,33 +84,22 @@ export default function ProjectDetailsPage() {
 
       <section className="py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-sm font-semibold">Custom fields</h2><p className="mt-1 text-sm text-muted-foreground">Tenant-wide field groups and project-specific values.</p></div>
-          {canManageFieldDefinitions && <Button variant="outline" onPress={() => setGroupOpen(true)}><Plus />Add field group</Button>}
+          <div><h2 className="text-sm font-semibold">Plugin fields</h2><p className="mt-1 text-sm text-muted-foreground">Fields are provided by installed plugins.</p></div>
         </div>
         {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
         {groups.length ? <div className="space-y-8">
           {groups.map((group) => <div key={group.id} className="border-t border-border pt-4">
-            <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-sm font-medium">{group.name}</h3><p className="text-xs text-muted-foreground">{group.key}</p></div>{canManageFieldDefinitions && <Button variant="ghost" size="sm" onPress={() => { setFieldGroup(group); setFieldOpen(true); }}><Plus />Add field</Button>}</div>
+            <div className="mb-3"><h3 className="text-sm font-medium">{group.name}</h3><p className="text-xs text-muted-foreground">{group.key}</p></div>
             {group.fields.length ? <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
               {group.fields.map((field) => <div key={field.id} className="space-y-2">
                 <Label htmlFor={`field-${field.id}`}>{field.label}{field.required && <span className="ml-1 text-destructive">*</span>}</Label>
                 <FieldEditor field={field} value={values[field.id] ?? ""} disabled={!permissions.includes("manage_fields")} onChange={(value) => setValues((current) => ({ ...current, [field.id]: value }))} />
               </div>)}
-            </div> : <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">No fields in this group.</p>{canManageFieldDefinitions && <Button variant="ghost" size="sm" onPress={() => { setFieldGroup(group); setFieldOpen(true); }}><Plus />Add field</Button>}</div>}
+            </div> : <p className="text-sm text-muted-foreground">No fields provided by this plugin.</p>}
           </div>)}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">{message && <p role="status" className="mr-auto text-sm text-muted-foreground"><Check className="mr-1 inline size-4" />{message}</p>}{permissions.includes("manage_fields") && <Button onPress={() => void saveValues()} isDisabled={saving}><Save />{saving ? "Saving..." : "Save fields"}</Button>}</div>
-        </div> : <div className="border-y border-border py-10 text-center"><p className="text-sm font-medium">No custom field groups</p><p className="mt-1 text-sm text-muted-foreground">Add a field group to define reusable project metadata.</p></div>}
+        </div> : <div className="border-y border-border py-10 text-center"><p className="text-sm font-medium">No plugin fields</p><p className="mt-1 text-sm text-muted-foreground">Installed plugins can provide project configuration fields.</p></div>}
       </section>
-
-      <Dialog isOpen={groupOpen} onOpenChange={setGroupOpen}>
-        <DialogHeader><DialogTitle>Add field group</DialogTitle><DialogDescription>Groups and their field definitions are shared across this workspace.</DialogDescription></DialogHeader>
-          <form className="space-y-4" onSubmit={(event) => void addGroup(event)}><div className="space-y-2"><Label htmlFor="group-name">Group name</Label><Input id="group-name" value={groupName} onChange={(event) => setGroupName(event.target.value)} required /></div><div className="space-y-2"><Label htmlFor="group-key">Group key</Label><Input id="group-key" value={groupKey} onChange={(event) => setGroupKey(event.target.value)} placeholder="Generated from group name" /></div><DialogFooter><Button type="button" variant="outline" onPress={() => setGroupOpen(false)}>Cancel</Button><Button type="submit" isDisabled={!groupName.trim()}>Add group</Button></DialogFooter></form>
-      </Dialog>
-
-      <Dialog isOpen={fieldOpen} onOpenChange={setFieldOpen}>
-        <DialogHeader><DialogTitle>Add custom field</DialogTitle><DialogDescription>Add a field to {fieldGroup?.name}.</DialogDescription></DialogHeader>
-          <form className="space-y-4" onSubmit={(event) => void addField(event)}><div className="space-y-2"><Label htmlFor="field-label">Field label</Label><Input id="field-label" value={fieldLabel} onChange={(event) => setFieldLabel(event.target.value)} required /></div><div className="space-y-2"><Label htmlFor="field-key">Field key</Label><Input id="field-key" value={fieldKey} onChange={(event) => setFieldKey(event.target.value)} placeholder="Generated from label" /></div><div className="space-y-2"><Label>Field type</Label><div className="flex flex-wrap gap-1 rounded-md border border-border p-1">{fieldTypes.map((type) => <Button key={type} type="button" variant={fieldType === type ? "secondary" : "ghost"} size="sm" onPress={() => setFieldType(type)}>{type}</Button>)}</div></div>{fieldType === "select" && <div className="space-y-2"><Label htmlFor="field-options">Options</Label><Input id="field-options" value={fieldOptions} onChange={(event) => setFieldOptions(event.target.value)} placeholder="Development, Staging, Production" required /></div>}<Button type="button" variant={fieldRequired ? "secondary" : "outline"} onPress={() => setFieldRequired(!fieldRequired)}>{fieldRequired ? "Required" : "Optional"}</Button><DialogFooter><Button type="button" variant="outline" onPress={() => setFieldOpen(false)}>Cancel</Button><Button type="submit" isDisabled={!fieldLabel.trim()}>Add field</Button></DialogFooter></form>
-      </Dialog>
     </div>
   );
 }
