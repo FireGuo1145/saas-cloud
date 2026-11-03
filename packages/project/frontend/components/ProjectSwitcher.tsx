@@ -40,12 +40,6 @@ export default function ProjectSwitcher() {
   }
 
   useEffect(() => { void reload().catch(() => undefined); }, [location.pathname]);
-  useEffect(() => {
-    const openCreate = () => setCreateOpen(true);
-    document.addEventListener("mirelia:open-project-create", openCreate);
-    return () => document.removeEventListener("mirelia:open-project-create", openCreate);
-  }, []);
-
   async function createProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
