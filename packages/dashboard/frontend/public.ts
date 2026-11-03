@@ -1,4 +1,4 @@
-export { Button, buttonVariants } from "./components/ui/button";
+export { Button, LinkButton, buttonVariants } from "./components/ui/button";
 export { Badge } from "./components/ui/badge";
 export { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogTitle, DialogTrigger } from "./components/ui/dialog";
 export { DropdownMenu, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./components/ui/dropdown-menu";

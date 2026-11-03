@@ -1,6 +1,6 @@
-import { UserRound } from "lucide-react";
+import { ArrowRight, FolderKanban, UserRound } from "lucide-react";
 import type { DashboardContext } from "@mirelia/dashboard/frontend";
-import { api, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@mirelia/dashboard/frontend";
+import { api, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, LinkButton } from "@mirelia/dashboard/frontend";
 import { useEffect, useState, type FormEvent } from "react";
 
 interface Profile {
@@ -8,6 +8,43 @@ interface Profile {
   username: string;
   email: string;
   avatar_url: string;
+}
+
+function AccountHomePage() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    void api.get("/user/me").then((response) => setProfile(response.data as Profile));
+  }, []);
+
+  return (
+    <div className="mx-auto w-full max-w-6xl p-5 sm:p-8">
+      <div className="border-b border-border pb-5">
+        <p className="mb-1 text-sm text-muted-foreground">Account</p>
+        <h1 className="text-2xl font-semibold">{profile ? `Welcome, ${profile.username}` : "Account home"}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Your account and workspace overview.</p>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <UserRound className="size-5 text-muted-foreground" />
+              <div><CardTitle>Account profile</CardTitle><CardDescription>{profile?.email || "Manage your account details."}</CardDescription></div>
+            </div>
+          </CardHeader>
+          <CardContent><LinkButton variant="outline" href="/account/profile">Manage account<ArrowRight /></LinkButton></CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <FolderKanban className="size-5 text-muted-foreground" />
+              <div><CardTitle>Projects</CardTitle><CardDescription>Open and manage your cloud projects.</CardDescription></div>
+            </div>
+          </CardHeader>
+          <CardContent><LinkButton href="/projects">Go to projects<ArrowRight /></LinkButton></CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 function ProfilePage() {
@@ -71,6 +108,7 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
-  ctx.navigation({ id: "account", label: "Account", path: "/account/profile", icon: UserRound, order: 90 });
+  ctx.navigation({ id: "account", label: "Account", path: "/", icon: UserRound, order: 90 });
+  ctx.route({ path: "/", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });
 }

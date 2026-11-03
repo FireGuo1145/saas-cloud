@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useNavigation, useTopBar } from "@mirelia/dashboard/frontend";
 import { Cloud } from "lucide-react";
@@ -6,6 +6,12 @@ import { Cloud } from "lucide-react";
 export function DashboardFrame({ children }: { children: ReactNode }) {
   const items = useNavigation();
   const tools = useTopBar();
+  const { pathname } = useLocation();
+  const visibleTools = tools.filter(({ paths }) => !paths || paths.some((path) => {
+    const pattern = path.split("/").filter(Boolean);
+    const current = pathname.split("/").filter(Boolean);
+    return pattern.length === current.length && pattern.every((part, index) => part.startsWith(":") || part === current[index]);
+  }));
   return (
     <div className="flex h-dvh min-h-[480px] flex-col overflow-hidden bg-background text-foreground">
       <header className="z-20 flex h-14 shrink-0 items-center border-b border-border bg-card">
@@ -14,7 +20,7 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
           <span>Mirelia Cloud</span>
         </Link>
         <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
-          {tools.map(({ id, component: Component }) => <Component key={id} />)}
+          {visibleTools.map(({ id, component: Component }) => <Component key={id} />)}
         </div>
         <Link to="/account/profile" className="mr-4 grid size-8 shrink-0 place-items-center rounded-full border border-border text-xs font-medium text-muted-foreground" aria-label="Account profile">ME</Link>
       </header>

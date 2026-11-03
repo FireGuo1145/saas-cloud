@@ -6,8 +6,7 @@ import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 
 export default function apply(ctx: DashboardContext) {
   ctx.navigation({ id: "projects", label: "Projects", path: "/projects", icon: FolderKanban, order: 10 });
-  ctx.topBar({ id: "project-switcher", component: ProjectSwitcher });
-  ctx.route({ path: "/", component: ProjectsPage, shell: "dashboard" });
+  ctx.topBar({ id: "project-switcher", component: ProjectSwitcher, paths: ["/projects", "/projects/:id"] });
   ctx.route({ path: "/projects", component: ProjectsPage, shell: "dashboard" });
   ctx.route({ path: "/projects/:id", component: ProjectDetailsPage, shell: "dashboard" });
 }
