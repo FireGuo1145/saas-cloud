@@ -10,8 +10,11 @@ export const provide = ["rainyun"];
 
 export interface RainyunConfig { apiBaseUrl: string; apiKey: string; timeoutMs: number }
 export interface RainyunPlan { id: number; plan_name: string; chinese: string; region: string; machine: string; price: number; cpu: number; memory: number; disk: number; net_out: number; available_stock: number; is_selling: boolean; ip_prices: Record<string, number> }
+export interface RainyunOS { id: number; name: string; chinese_name: string; os_type: string; region: string; is_available: boolean }
 export interface RainyunService {
   plans(): Promise<RainyunPlan[]>;
+  operatingSystems(): Promise<RainyunOS[]>;
+  purchase(input: { planId: number; osId: number; duration: number }): Promise<Server>;
 }
 export interface ProjectServer { id?: number; tenant_id: number; project_id: number; instance_id: number; hostname: string; ipv4: string; status: string; node: string; cpu: number | null; memory: number | null; disk: number | null; expires_at: string; added_by: number; created_at: string }
 declare module "@yumerijs/types" { interface Tables { rainyun_project_servers: ProjectServer } }
@@ -75,10 +78,10 @@ export async function apply(ctx: Context, pluginConfig: RainyunConfig = { apiBas
     expires_at: { type: "string", initial: "", nullable: false }, added_by: { type: "integer", nullable: false }, created_at: { type: "timestamp", nullable: false },
   }, { unique: ["instance_id"] });
 
-  async function request(path: string) {
+  async function request(path: string, method = "GET", requestBody?: unknown) {
     if (!pluginConfig.apiKey.trim()) throw new Error("RAINYUN_API_KEY_MISSING");
     const base = (pluginConfig.apiBaseUrl || "https://api.v2.rainyun.com").replace(/\/+$/, "");
-    const response = await fetch(`${base}${path}`, { headers: { "x-api-key": pluginConfig.apiKey, Accept: "application/json" }, signal: AbortSignal.timeout(Math.max(1000, Math.min(pluginConfig.timeoutMs || 12000, 60000))) });
+    const response = await fetch(`${base}${path}`, { method, headers: { "x-api-key": pluginConfig.apiKey, Accept: "application/json", ...(requestBody === undefined ? {} : { "content-type": "application/json" }) }, body: requestBody === undefined ? undefined : JSON.stringify(requestBody), signal: AbortSignal.timeout(Math.max(1000, Math.min(pluginConfig.timeoutMs || 12000, 60000))) });
     if (!response.ok) throw new Error(`Rainyun HTTP ${response.status}`);
     const body: unknown = await response.json();
     const root = object(body);
@@ -99,6 +102,20 @@ export async function apply(ctx: Context, pluginConfig: RainyunConfig = { apiBas
           ip_prices: Object.fromEntries(Object.entries(object(item.ip_prices)).map(([key, value]) => [key, Number(value)])),
         };
       }).filter((plan) => Number.isSafeInteger(plan.id) && Number.isFinite(plan.price));
+    },
+    operatingSystems: async () => {
+      const data = await request("/product/rcs/os-templates");
+      const items = Array.isArray(data) ? data : Array.isArray(object(data).data) ? object(data).data as unknown[] : [];
+      return items.map((raw) => {
+        const item = object(raw);
+        return { id: Number(item.id), name: text(item.name), chinese_name: text(item.chinese_name), os_type: text(item.os_type), region: text(item.region), is_available: item.is_available === true };
+      }).filter((item) => Number.isSafeInteger(item.id));
+    },
+    purchase: async ({ planId, osId, duration }) => {
+      const result = await request("/product/rcs/", "POST", { plan_id: planId, os_id: osId, duration, with_eip_num: 1, with_eip_type: "eipv4" });
+      const created = server(result);
+      if (!created) throw new Error("Rainyun did not return a server instance");
+      return created;
     },
   };
   ctx.registerComponent("rainyun", rainyun);

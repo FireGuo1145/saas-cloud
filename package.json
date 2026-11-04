@@ -12,6 +12,7 @@
     "start": "yumeri start --auto install"
   },
   "dependencies": {
+    "@mirelia/billing": "workspace:^",
     "@mirelia/project": "workspace:^",
     "@mirelia/rainyun": "workspace:^",
     "@mirelia/store": "workspace:^",

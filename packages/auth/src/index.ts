@@ -29,6 +29,7 @@ export interface AuthService {
   enabled(): boolean;
   registrationEnabled(): boolean;
   current(session: Session): Promise<User | undefined>;
+  registerPublicPath(path: string): () => void;
 }
 
 declare module "yumeri" {
@@ -115,7 +116,14 @@ export async function apply(ctx: Context, pluginConfig: AuthConfig) {
   const service: AuthService = {
     enabled: () => enabled,
     registrationEnabled: () => enabled && registrationEnabled,
-    current: (session) => users.current(session)
+    current: (session) => users.current(session),
+    registerPublicPath(path) {
+      if (!path.startsWith("/api/") || path.includes("..")) throw new Error("Invalid public API path");
+      publicPaths.add(path);
+      const remove = () => { publicPaths.delete(path); };
+      ctx.affect(remove);
+      return remove;
+    }
   };
   ctx.registerComponent("auth", service);
 
