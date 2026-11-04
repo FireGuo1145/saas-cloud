@@ -55,7 +55,7 @@ export interface ProjectFieldValue {
   updated_at: string;
 }
 
-export type ProjectPermission = "view" | "edit" | "manage_members" | "manage_fields";
+export type ProjectPermission = "view" | "edit" | "manage_members" | "manage_fields" | "manage_products";
 export interface ProjectMember {
   id?: number;
   project_id: number;
@@ -80,6 +80,13 @@ export interface ProjectFieldGroupDefinition {
   fields: ProjectFieldDefinition[];
 }
 
+export interface ProjectAccess {
+  user: User;
+  tenant: Tenant;
+  project: Project;
+  permissions: ProjectPermission[];
+}
+
 declare module "@yumerijs/types" {
   interface Tables {
     projects: Project;
@@ -101,6 +108,7 @@ declare module "yumeri" {
 export interface ProjectService {
   list(tenantId: number): Promise<Project[]>;
   find(tenantId: number, projectId: number): Promise<Project | undefined>;
+  authorize(session: Session, projectId: number | string, permission?: ProjectPermission): Promise<ProjectAccess | undefined>;
   registerFieldGroup(pluginId: string, definition: ProjectFieldGroupDefinition): Promise<void>;
 }
 
@@ -128,6 +136,7 @@ export async function apply(ctx: Context) {
       overview: { zh: "概览", en: "Overview", ja: "概要" },
       settings: { zh: "设置", en: "Settings", ja: "設定" },
       members: { zh: "成员", en: "Members", ja: "メンバー" },
+      servers: { zh: "云服务器", en: "Cloud servers", ja: "クラウドサーバー" },
     },
     backToList: { zh: "返回项目列表", en: "Back to projects", ja: "プロジェクト一覧に戻る" },
     workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
@@ -194,6 +203,8 @@ export async function apply(ctx: Context) {
     editFieldValuesDescription: { zh: "更新此项目中的自定义字段值", en: "Update custom field values in this project", ja: "このプロジェクトのカスタムフィールド値を更新" },
     manageMembers: { zh: "管理成员", en: "Manage members", ja: "メンバーを管理" },
     manageMembersDescription: { zh: "添加成员并更改其权限", en: "Add members and change their permissions", ja: "メンバーを追加して権限を変更" },
+    manageProducts: { zh: "管理云产品", en: "Manage cloud products", ja: "クラウド製品を管理" },
+    manageProductsDescription: { zh: "将云服务商资源关联到此项目", en: "Link cloud provider resources to this project", ja: "クラウドプロバイダーのリソースをこのプロジェクトに関連付け" },
     errors: {
       authorization: { zh: "请先登录", en: "Authorization is required", ja: "ログインしてください" },
       notFound: { zh: "项目不存在", en: "Project not found", ja: "プロジェクトが見つかりません" },
@@ -281,7 +292,7 @@ export async function apply(ctx: Context) {
     updated_at: { type: "timestamp", nullable: false },
   }, { unique: [["project_id", "user_id"]] });
 
-  const allPermissions: ProjectPermission[] = ["view", "edit", "manage_members", "manage_fields"];
+  const allPermissions: ProjectPermission[] = ["view", "edit", "manage_members", "manage_fields", "manage_products"];
   for (const project of await db.select("projects", {})) {
     if (project.id === undefined || project.created_by === undefined) continue;
     if (await db.selectOne("project_members", { project_id: project.id, user_id: project.created_by })) continue;
@@ -299,6 +310,10 @@ export async function apply(ctx: Context) {
   const service: ProjectService = {
     list: async (tenantId) => db.select("projects", { tenant_id: tenantId, status: "active" }) as Promise<Project[]>,
     find: (tenantId, id) => db.selectOne("projects", { tenant_id: tenantId, id }) as Promise<Project | undefined>,
+    authorize: async (session, projectId, permission = "view") => {
+      const result = await requireProject(session, String(projectId), permission);
+      return "error" in result ? undefined : result;
+    },
     async registerFieldGroup(pluginId, definition) {
       const source = pluginId.trim();
       const key = definition.key.trim().toLowerCase();

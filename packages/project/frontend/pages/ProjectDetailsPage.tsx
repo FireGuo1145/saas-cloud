@@ -6,7 +6,7 @@ import { Check, CircleDot, Save, Settings2 } from "lucide-react";
 interface Project { id: number; project_id: string; name: string; description: string; status: string; created_at: string; updated_at: string }
 interface ProjectField { id: number; key: string; label: string; type: "text" | "number" | "boolean" | "date" | "url" | "select"; required: boolean; options: string[]; value: unknown }
 interface FieldGroup { id: number; key: string; name: string; fields: ProjectField[] }
-type Permission = "view" | "edit" | "manage_members" | "manage_fields";
+type Permission = "view" | "edit" | "manage_members" | "manage_fields" | "manage_products";
 interface ProjectPayload { project: Project; fieldGroups: FieldGroup[]; permissions: Permission[] }
 
 export default function ProjectDetailsPage() {

@@ -974,7 +974,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@mirelia/project@workspace:^, @mirelia/project@workspace:packages/project":
+"@mirelia/project@workspace:*, @mirelia/project@workspace:^, @mirelia/project@workspace:packages/project":
   version: 0.0.0-use.local
   resolution: "@mirelia/project@workspace:packages/project"
   dependencies:
@@ -982,6 +982,21 @@ __metadata:
     "@mirelia/database-core": "workspace:*"
     "@mirelia/tenant": "workspace:*"
     "@mirelia/user": "workspace:*"
+    "@vitejs/plugin-react": "npm:^6.0.1"
+    react: "npm:^19.2.6"
+    vite: "npm:^8.0.12"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
+"@mirelia/rainyun@workspace:packages/rainyun":
+  version: 0.0.0-use.local
+  resolution: "@mirelia/rainyun@workspace:packages/rainyun"
+  dependencies:
+    "@mirelia/dashboard": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+    "@mirelia/project": "workspace:*"
     "@vitejs/plugin-react": "npm:^6.0.1"
     react: "npm:^19.2.6"
     vite: "npm:^8.0.12"

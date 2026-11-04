@@ -12,6 +12,10 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
   function matchPath(pattern: string) {
     const segments = pattern.split("/").filter(Boolean);
     const current = pathname.split("/").filter(Boolean);
+    if (segments.at(-1) === "*") {
+      if (current.length < segments.length - 1) return false;
+      return segments.slice(0, -1).every((part, index) => part.startsWith(":") || part === current[index]);
+    }
     if (segments.length !== current.length) return false;
     return segments.every((part, index) => part.startsWith(":") || part === current[index]);
   }

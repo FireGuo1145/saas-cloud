@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Badge, Button, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, Label, api, useI18n } from "@mirelia/dashboard/frontend";
 import { Check, ChevronDown, Plus, ShieldCheck, UserRound, UsersRound, X } from "lucide-react";
 
-type Permission = "view" | "edit" | "manage_members" | "manage_fields";
+type Permission = "view" | "edit" | "manage_members" | "manage_fields" | "manage_products";
 interface Member { id: number; username: string; email: string; permissions: Permission[]; isOwner: boolean }
 interface AvailableUser { id: number; username: string; email: string }
 interface MembersPayload { members: Member[]; availableUsers: AvailableUser[]; canManage: boolean }
@@ -12,6 +12,7 @@ const permissionOptions: Array<{ id: Permission; labelKey: string; descriptionKe
   { id: "edit", labelKey: "cloud.project.editProject", descriptionKey: "cloud.project.editProjectDescription" },
   { id: "manage_fields", labelKey: "cloud.project.editFieldValues", descriptionKey: "cloud.project.editFieldValuesDescription" },
   { id: "manage_members", labelKey: "cloud.project.manageMembers", descriptionKey: "cloud.project.manageMembersDescription" },
+  { id: "manage_products", labelKey: "cloud.project.manageProducts", descriptionKey: "cloud.project.manageProductsDescription" },
 ];
 
 export default function ProjectMembersPage() {
