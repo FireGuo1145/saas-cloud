@@ -9,15 +9,20 @@ export const depend = ["database", "dashboard", "project"];
 export const provide = ["rainyun"];
 
 export interface RainyunConfig { apiBaseUrl: string; apiKey: string; timeoutMs: number }
+export interface RainyunPlan { id: number; plan_name: string; chinese: string; region: string; machine: string; price: number; cpu: number; memory: number; disk: number; net_out: number; available_stock: number; is_selling: boolean; ip_prices: Record<string, number> }
+export interface RainyunService {
+  plans(): Promise<RainyunPlan[]>;
+}
 export interface ProjectServer { id?: number; tenant_id: number; project_id: number; instance_id: number; hostname: string; ipv4: string; status: string; node: string; cpu: number | null; memory: number | null; disk: number | null; expires_at: string; added_by: number; created_at: string }
 declare module "@yumerijs/types" { interface Tables { rainyun_project_servers: ProjectServer } }
+declare module "yumeri" { interface Components { rainyun: RainyunService } }
 export const config: Schema<RainyunConfig> = Schema.object({
   apiBaseUrl: Schema.string("Rainyun API base URL").key("rainyun.apiBaseUrl").default("https://api.v2.rainyun.com"),
   apiKey: Schema.string("Rainyun API key; stored only in server configuration").key("rainyun.apiKey").default(""),
   timeoutMs: Schema.number("Rainyun API timeout in milliseconds").key("rainyun.timeoutMs").default(12000),
 });
 
-type Server = Omit<ProjectServer, "id" | "tenant_id" | "project_id" | "added_by" | "created_at">;
+export type Server = Omit<ProjectServer, "id" | "tenant_id" | "project_id" | "added_by" | "created_at">;
 function object(value: unknown): Record<string, unknown> { return value && typeof value === "object" ? value as Record<string, unknown> : {}; }
 function unwrap(value: unknown): unknown {
   const root = object(value);
@@ -77,9 +82,26 @@ export async function apply(ctx: Context, pluginConfig: RainyunConfig = { apiBas
     if (!response.ok) throw new Error(`Rainyun HTTP ${response.status}`);
     const body: unknown = await response.json();
     const root = object(body);
-    if (typeof root.Code === "number" && root.Code !== 200 && root.Code !== 0) throw new Error("Rainyun rejected the request");
+    const responseCode = root.Code ?? root.code;
+    if (typeof responseCode === "number" && responseCode !== 200 && responseCode !== 0) throw new Error("Rainyun rejected the request");
     return unwrap(body);
   }
+  const rainyun: RainyunService = {
+    plans: async () => {
+      const data = await request("/product/rcs/plans");
+      const items = Array.isArray(data) ? data : Array.isArray(object(data).data) ? object(data).data as unknown[] : [];
+      return items.map((raw) => {
+        const item = object(raw);
+        return {
+          id: Number(item.id), plan_name: text(item.plan_name), chinese: text(item.chinese), region: text(item.region), machine: text(item.machine),
+          price: Number(item.price), cpu: Number(item.cpu), memory: Number(item.memory), disk: Number(item.disk), net_out: Number(item.net_out),
+          available_stock: Number(item.available_stock), is_selling: item.is_selling === true,
+          ip_prices: Object.fromEntries(Object.entries(object(item.ip_prices)).map(([key, value]) => [key, Number(value)])),
+        };
+      }).filter((plan) => Number.isSafeInteger(plan.id) && Number.isFinite(plan.price));
+    },
+  };
+  ctx.registerComponent("rainyun", rainyun);
   async function instanceList(): Promise<Server[]> {
     const data = await request("/product/rcs/");
     const items = Array.isArray(data) ? data : Array.isArray(object(data).data) ? object(data).data as unknown[] : Array.isArray(object(data).items) ? object(data).items as unknown[] : [];

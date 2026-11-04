@@ -915,6 +915,8 @@ __metadata:
     "@hirarijs/loader-ts": "npm:^1.0.20"
     "@hirarijs/loader-tsx": "npm:^1.0.0"
     "@mirelia/project": "workspace:^"
+    "@mirelia/rainyun": "workspace:^"
+    "@mirelia/store": "workspace:^"
     "@types/node": "npm:^26.6.6"
     cross-env: "npm:^10.0.0"
     typescript: "npm:^7.0.2"
@@ -990,7 +992,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@mirelia/rainyun@workspace:packages/rainyun":
+"@mirelia/rainyun@workspace:*, @mirelia/rainyun@workspace:^, @mirelia/rainyun@workspace:packages/rainyun":
   version: 0.0.0-use.local
   resolution: "@mirelia/rainyun@workspace:packages/rainyun"
   dependencies:
@@ -1012,6 +1014,21 @@ __metadata:
     "@mirelia/database-core": "workspace:*"
     "@types/node": "npm:^26.6.6"
     yumeri: "npm:^3.1.4"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
+"@mirelia/store@workspace:^, @mirelia/store@workspace:packages/store":
+  version: 0.0.0-use.local
+  resolution: "@mirelia/store@workspace:packages/store"
+  dependencies:
+    "@mirelia/dashboard": "workspace:*"
+    "@mirelia/rainyun": "workspace:*"
+    "@mirelia/user": "workspace:*"
+    "@vitejs/plugin-react": "npm:^6.0.1"
+    react: "npm:^19.2.6"
+    vite: "npm:^8.0.12"
   peerDependencies:
     yumeri: ^3.1.4
   languageName: unknown
