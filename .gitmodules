@@ -1,0 +1,3 @@
+[submodule "panels/JPGPanel"]
+	path = panels/JPGPanel
+	url = https://github.com/MineJPGcraft/JPGPanel.git
