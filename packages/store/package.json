@@ -13,7 +13,6 @@
     "@mirelia/billing": "workspace:*",
     "@mirelia/dashboard": "workspace:*",
     "@mirelia/project": "workspace:*",
-    "@mirelia/rainyun": "workspace:*",
     "@mirelia/tenant": "workspace:*",
     "@mirelia/user": "workspace:*"
   },

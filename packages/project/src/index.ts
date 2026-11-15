@@ -87,6 +87,44 @@ export interface ProjectAccess {
   permissions: ProjectPermission[];
 }
 
+/**
+ * A product created by a plugin that lives in a project, such as a cloud server.
+ * The owning plugin decides which project properties the product needs.
+ */
+export interface ProjectProduct {
+  id?: number;
+  tenant_id: number;
+  project_id: number;
+  plugin_id: string;
+  product_type: string;
+  resource_id: string;
+  name: string;
+  status: string;
+  attributes_json: string;
+  order_id: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectProductInput {
+  /** Product type owned by the registering plugin, for example `server`. */
+  type: string;
+  /** Provider-side identity; unique per plugin and type inside one project. */
+  resourceId: string;
+  name: string;
+  status?: string;
+  /** JSON-serializable provider metadata shown next to the product. */
+  attributes?: Record<string, unknown>;
+  /** Store order that created the product, when it was purchased. */
+  orderId?: string;
+}
+
+export interface ProjectProductEntry extends ProjectProduct {
+  attributes: Record<string, unknown>;
+  managedBy: string;
+}
+
 declare module "@yumerijs/types" {
   interface Tables {
     projects: Project;
@@ -94,6 +132,7 @@ declare module "@yumerijs/types" {
     project_fields: ProjectField;
     project_field_values: ProjectFieldValue;
     project_members: ProjectMember;
+    project_products: ProjectProduct;
   }
 }
 
@@ -110,6 +149,13 @@ export interface ProjectService {
   find(tenantId: number, projectId: number): Promise<Project | undefined>;
   authorize(session: Session, projectId: number | string, permission?: ProjectPermission): Promise<ProjectAccess | undefined>;
   registerFieldGroup(pluginId: string, definition: ProjectFieldGroupDefinition): Promise<void>;
+  /** Add a plugin-owned product to a project. Idempotent for the same resource. */
+  addProduct(pluginId: string, input: { tenantId: number; projectId: number; userId: number } & ProjectProductInput): Promise<ProjectProductEntry>;
+  /** List plugin-owned products of a project. Omit `pluginId` to list every plugin. */
+  listProducts(projectId: number, pluginId?: string): Promise<ProjectProductEntry[]>;
+  /** Remove a product; only the registering plugin can remove its own products. */
+  removeProduct(pluginId: string, projectId: number, productId: number): Promise<boolean>;
+  findProduct(pluginId: string, projectId: number, type: string, resourceId: string): Promise<ProjectProductEntry | undefined>;
 }
 
 function respondError(session: Session, status: number, error: string) {
@@ -137,6 +183,19 @@ export async function apply(ctx: Context) {
       settings: { zh: "设置", en: "Settings", ja: "設定" },
       members: { zh: "成员", en: "Members", ja: "メンバー" },
       servers: { zh: "云服务器", en: "Cloud servers", ja: "クラウドサーバー" },
+      products: { zh: "产品", en: "Products", ja: "製品" },
+    },
+    products: {
+      title: { zh: "项目产品", en: "Project products", ja: "プロジェクト製品" },
+      description: { zh: "已购买并关联到此项目的产品，由提供方插件管理。", en: "Products bought for or linked to this project, managed by their provider plugin.", ja: "このプロジェクトに購入・関連付けられた製品です。提供元プラグインが管理します。" },
+      empty: { zh: "此项目还没有产品。", en: "This project has no products yet.", ja: "このプロジェクトにはまだ製品がありません。" },
+      browse: { zh: "前往商城", en: "Browse store", ja: "ストアを見る" },
+      loading: { zh: "正在加载产品…", en: "Loading products…", ja: "製品を読み込み中…" },
+      provider: { zh: "提供方", en: "Provider", ja: "提供元" },
+      purchased: { zh: "购买于", en: "Purchased", ja: "購入日" },
+      linked: { zh: "已关联", en: "Linked", ja: "関連付け済み" },
+      purchasedBadge: { zh: "商城购买", en: "Purchased", ja: "購入済み" },
+      errors: { load: { zh: "无法加载项目产品", en: "Could not load project products", ja: "プロジェクト製品を読み込めませんでした" } },
     },
     backToList: { zh: "返回项目列表", en: "Back to projects", ja: "プロジェクト一覧に戻る" },
     workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
@@ -239,7 +298,7 @@ export async function apply(ctx: Context) {
   } } });
   const db = ctx.component.database;
   const tenants = ctx.component.tenant as TenantService;
-  const users = ctx.component.user as { current(session: Session): Promise<User | undefined> };
+  const users = ctx.component.user;
 
   await db.extend("projects", {
     id: { type: "integer", autoIncrement: true },
@@ -291,8 +350,50 @@ export async function apply(ctx: Context) {
     created_at: { type: "timestamp", nullable: false },
     updated_at: { type: "timestamp", nullable: false },
   }, { unique: [["project_id", "user_id"]] });
+  await db.extend("project_products", {
+    id: { type: "integer", autoIncrement: true },
+    tenant_id: { type: "integer", nullable: false },
+    project_id: { type: "integer", nullable: false },
+    plugin_id: { type: "string", nullable: false },
+    product_type: { type: "string", nullable: false },
+    resource_id: { type: "string", nullable: false },
+    name: { type: "string", nullable: false },
+    status: { type: "string", initial: "active", nullable: false },
+    attributes_json: { type: "text", initial: "{}", nullable: false },
+    order_id: { type: "string", initial: "", nullable: false },
+    created_by: { type: "integer", nullable: false },
+    created_at: { type: "timestamp", nullable: false },
+    updated_at: { type: "timestamp", nullable: false },
+  }, { unique: [["project_id", "plugin_id", "product_type", "resource_id"]] });
 
   const allPermissions: ProjectPermission[] = ["view", "edit", "manage_members", "manage_fields", "manage_products"];
+
+  function productEntry(product: ProjectProduct, pluginId = product.plugin_id): ProjectProductEntry {
+    let attributes: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(product.attributes_json || "{}");
+      attributes = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    } catch { attributes = {}; }
+    return { ...product, attributes, managedBy: pluginId };
+  }
+
+  function normalizeProduct(pluginId: string, input: ProjectProductInput) {
+    const source = pluginId.trim().slice(0, 100);
+    const type = String(input.type ?? "").trim().toLowerCase();
+    const resourceId = String(input.resourceId ?? "").trim().slice(0, 190);
+    const name = String(input.name ?? "").trim().slice(0, 160);
+    const status = String(input.status ?? "active").trim().slice(0, 40) || "active";
+    const orderId = String(input.orderId ?? "").trim().slice(0, 120);
+    if (!source || !/^[a-z][a-z0-9_.-]{1,99}$/i.test(source)) throw new Error("Invalid project product plugin id");
+    if (!/^[a-z][a-z0-9_-]{1,62}$/.test(type)) throw new Error("Invalid project product type");
+    if (!resourceId) throw new Error("Project product resource id is required");
+    if (!name) throw new Error("Project product name is required");
+    const attributes = input.attributes && typeof input.attributes === "object" ? input.attributes : {};
+    const serialized = JSON.stringify(attributes);
+    if (serialized.length > 20000) throw new Error("Project product attributes are too large");
+    return { pluginId: source, type, resourceId, name, status, orderId, attributes_json: serialized };
+  }
+
   for (const project of await db.select("projects", {})) {
     if (project.id === undefined || project.created_by === undefined) continue;
     if (await db.selectOne("project_members", { project_id: project.id, user_id: project.created_by })) continue;
@@ -357,6 +458,51 @@ export async function apply(ctx: Context) {
         if (current) await db.update("project_fields", { id: current.id }, data);
         else await db.create("project_fields", { ...data, created_at: now });
       }
+    },
+    async addProduct(pluginId, input) {
+      const product = normalizeProduct(pluginId, input);
+      const projectId = Number(input.projectId);
+      const tenantId = Number(input.tenantId);
+      const userId = Number(input.userId);
+      if (!Number.isSafeInteger(projectId) || projectId < 1) throw new Error("Invalid project product project");
+      if (!Number.isSafeInteger(tenantId) || tenantId < 1) throw new Error("Invalid project product workspace");
+      if (!Number.isSafeInteger(userId) || userId < 1) throw new Error("Invalid project product owner");
+      const project = await db.selectOne("projects", { id: projectId, tenant_id: tenantId }) as Project | undefined;
+      if (!project) throw new Error("Project not found");
+      const existing = await db.selectOne("project_products", {
+        project_id: projectId, plugin_id: product.pluginId, product_type: product.type, resource_id: product.resourceId,
+      }) as ProjectProduct | undefined;
+      const now = new Date().toISOString();
+      if (existing) {
+        const updates: Partial<ProjectProduct> = { name: product.name, status: product.status, attributes_json: product.attributes_json, updated_at: now };
+        if (product.orderId) updates.order_id = product.orderId;
+        await db.update("project_products", { id: existing.id }, updates);
+        return productEntry({ ...existing, ...updates } as ProjectProduct);
+      }
+      const created = await db.create("project_products", {
+        tenant_id: tenantId, project_id: projectId, plugin_id: product.pluginId, product_type: product.type,
+        resource_id: product.resourceId, name: product.name, status: product.status, attributes_json: product.attributes_json,
+        order_id: product.orderId, created_by: userId, created_at: now, updated_at: now,
+      }) as ProjectProduct;
+      return productEntry(created);
+    },
+    async listProducts(projectId, pluginId) {
+      const products = await db.select("project_products", pluginId ? { project_id: projectId, plugin_id: pluginId } : { project_id: projectId }) as ProjectProduct[];
+      return products.sort((a, b) => (b.id ?? 0) - (a.id ?? 0)).map((product) => productEntry(product));
+    },
+    async removeProduct(pluginId, projectId, productId) {
+      const source = pluginId.trim();
+      if (!source || !Number.isSafeInteger(projectId) || !Number.isSafeInteger(productId)) return false;
+      const product = await db.selectOne("project_products", { id: productId, project_id: projectId, plugin_id: source }) as ProjectProduct | undefined;
+      if (!product) return false;
+      await db.remove("project_products", { id: product.id });
+      return true;
+    },
+    async findProduct(pluginId, projectId, type, resourceId) {
+      const product = await db.selectOne("project_products", {
+        project_id: projectId, plugin_id: pluginId.trim(), product_type: String(type).trim().toLowerCase(), resource_id: String(resourceId).trim(),
+      }) as ProjectProduct | undefined;
+      return product ? productEntry(product) : undefined;
     },
   };
   ctx.registerComponent("project", service);
@@ -645,6 +791,12 @@ export async function apply(ctx: Context) {
     } catch (error) {
       return respondError(session, 400, session.text("cloud.project.errors.invalidFields"));
     }
+  });
+
+  ctx.route("/api/projects/:id/products").methods("GET").action(async (session, _query, id) => {
+    const result = await requireProject(session, id, "view");
+    if ("error" in result) return respondError(session, result.status, result.error);
+    session.respond({ products: await service.listProducts(result.project.id!), canManage: result.permissions.includes("manage_products") }, "json");
   });
 
   ctx.component.dashboard.addEntry({

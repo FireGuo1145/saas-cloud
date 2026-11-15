@@ -29,6 +29,16 @@ export interface RegisterUserInput {
   password: string;
 }
 
+/** Account row as returned by the administration endpoints. */
+export interface AdminUserView {
+  id: number;
+  username: string;
+  email: string;
+  is_admin: boolean;
+  email_verified: boolean;
+  created_at: string;
+}
+
 export interface UserConfig {
   adminUsername: string;
   adminEmail: string;
@@ -45,13 +55,24 @@ export interface UserService {
   findByIdentifier(identifier: string): Promise<User | undefined>;
   update(id: number, data: Partial<Pick<User, "username" | "email" | "avatar_url">>): Promise<User | undefined>;
   require(session: Session): User | undefined;
+  /* Site administration */
+  isAdmin(user: User): boolean;
+  /** Resolve the signed-in user and require site administrator rights. */
+  requireAdmin(session: Session): Promise<User | undefined>;
+  list(): Promise<AdminUserView[]>;
+  setAdmin(id: number, isAdmin: boolean): Promise<User | undefined>;
 }
+
+/** The subset other plugins rely on through `ctx.component.user`. */
+export type SessionUserService = Pick<UserService, "current" | "findById" | "isAdmin" | "requireAdmin" | "list" | "setAdmin">;
 
 declare module "yumeri" {
   interface Components {
-    user: UserService;
+    user: SessionUserService;
   }
 }
+
+function object(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -115,6 +136,26 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
       authRequired: { zh: "请先登录", en: "Authentication is required", ja: "ログインしてください" },
       invalidRequest: { zh: "请求内容无效", en: "Invalid request", ja: "リクエスト内容が無効です" },
       accountExists: { zh: "用户名或邮箱已被使用", en: "The username or email is already in use", ja: "ユーザー名またはメールアドレスはすでに使用されています" },
+      adminRequired: { zh: "需要站点管理员权限", en: "Site administrator permission is required", ja: "サイト管理者の権限が必要です" },
+    },
+    admin: {
+      nav: { section: { zh: "站点管理", en: "Administration", ja: "サイト管理" }, users: { zh: "用户", en: "Users", ja: "ユーザー" } },
+      usersTitle: { zh: "站点用户", en: "Site users", ja: "サイトユーザー" },
+      usersDescription: { zh: "查看全部账户并授予或撤销站点管理员权限。", en: "Review every account and grant or revoke site administrator rights.", ja: "すべてのアカウントを確認し、サイト管理者権限を付与・解除します。" },
+      administrator: { zh: "管理员", en: "Administrator", ja: "管理者" },
+      member: { zh: "普通用户", en: "User", ja: "一般ユーザー" },
+      grant: { zh: "设为管理员", en: "Make administrator", ja: "管理者にする" },
+      revoke: { zh: "撤销管理员", en: "Revoke administrator", ja: "管理者権限を解除" },
+      registered: { zh: "注册于", en: "Joined", ja: "登録日" },
+      searchUsers: { zh: "搜索用户", en: "Search users", ja: "ユーザーを検索" },
+      onlyAdmins: { zh: "仅显示管理员", en: "Administrators only", ja: "管理者のみ" },
+      empty: { zh: "没有匹配的用户", en: "No matching users", ja: "該当するユーザーはいません" },
+      self: { zh: "你", en: "You", ja: "あなた" },
+      errors: {
+        keepAdmin: { zh: "站点至少需要保留一位管理员", en: "The site must keep at least one administrator", ja: "サイトには少なくとも 1 名の管理者が必要です" },
+        protectedAdmin: { zh: "内置管理员权限不能撤销", en: "The bootstrap administrator cannot be demoted", ja: "初期管理者の権限は解除できません" },
+        usersLoad: { zh: "无法加载用户列表", en: "Could not load users", ja: "ユーザー一覧を読み込めませんでした" },
+      },
     },
   } } });
   ctx.component.dashboard.addEntry({
@@ -146,6 +187,7 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
     created_at: { type: "timestamp", nullable: false },
   }, { unique: ["token_hash"] });
 
+  let adminUserId: number | undefined;
   const adminUsername = normalizeUsername(pluginConfig.adminUsername ?? "");
   const adminPassword = pluginConfig.adminPassword ?? "";
   const adminEmail = normalizeEmail(pluginConfig.adminEmail || `${adminUsername}@localhost.localdomain`);
@@ -164,6 +206,7 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
     const passwordMatches = existing ? await bcrypt.compare(adminPassword, existing.password_hash) : false;
     if (existing) {
       if (existing.id === undefined) throw new Error("Configured administrator has an invalid account id");
+      adminUserId = existing.id;
       await db.update("users", { id: existing.id }, {
         username: adminUsername,
         email: adminEmail,
@@ -187,6 +230,7 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
         created_at: now,
         updated_at: now,
       });
+      adminUserId = administrator.id;
       await ctx.emit("user:registered", administrator);
       logger.info(`Administrator account "${adminUsername}" created from user configuration`);
     }
@@ -324,6 +368,43 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
       session.respond({ error: session.text("cloud.account.errors.authRequired") }, "json");
       return undefined;
     },
+
+    isAdmin(user) {
+      if (user.id === undefined) return false;
+      // The configured bootstrap administrator stays in charge even if the stored
+      // flag was removed for that account.
+      return Boolean(user.is_admin) || (adminUserId !== undefined && user.id === adminUserId);
+    },
+
+    async requireAdmin(session) {
+      const user = await service.current(session);
+      if (!user) { session.status = 401; session.respond({ error: session.text("cloud.account.errors.authRequired") }, "json"); return undefined; }
+      if (!service.isAdmin(user)) { session.status = 403; session.respond({ error: session.text("cloud.account.errors.adminRequired") }, "json"); return undefined; }
+      return user;
+    },
+
+    async list() {
+      const users = await db.select("users", {}) as User[];
+      return users.sort((a, b) => (b.id ?? 0) - (a.id ?? 0)).map((user) => ({
+        id: user.id!, username: user.username, email: user.email,
+        is_admin: service.isAdmin(user), email_verified: Boolean(user.email_verified),
+        created_at: user.created_at,
+      }));
+    },
+
+    async setAdmin(id, next) {
+      const target = await db.selectOne("users", { id }) as User | undefined;
+      if (!target) return undefined;
+      if (!next && adminUserId !== undefined && target.id === adminUserId) throw new Error("protected_admin");
+      if (!next) {
+        // Count every administrator by effective rights, so the configured bootstrap
+        // administrator always keeps the site manageable.
+        const remaining = (await db.select("users", {}) as User[]).filter((user) => user.id !== id && service.isAdmin(user));
+        if (!remaining.length) throw new Error("keep_admin");
+      }
+      await db.update("users", { id }, { is_admin: next, updated_at: new Date().toISOString() });
+      return db.selectOne("users", { id });
+    },
   };
 
   ctx.registerComponent("user", service);
@@ -337,7 +418,8 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
     const current = service.require(session);
     if (!current) return;
     if ((session.client.req?.method ?? "GET").toUpperCase() === "GET") {
-      session.respond(publicUser(current), "json");
+      // `is_admin` is stored as 0/1 by SQL drivers; clients rely on a boolean.
+      session.respond({ ...publicUser(current), is_admin: service.isAdmin(current), email_verified: Boolean(current.email_verified) }, "json");
       return;
     }
     try {
@@ -347,7 +429,8 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
         email: typeof input.email === "string" ? input.email : undefined,
         avatar_url: typeof input.avatar_url === "string" ? input.avatar_url : undefined,
       });
-      session.respond(updated ? publicUser(updated) : publicUser(current), "json");
+      const result = updated ?? current;
+      session.respond({ ...publicUser(result), is_admin: service.isAdmin(result), email_verified: Boolean(result.email_verified) }, "json");
     } catch (error) {
       const code = error instanceof Error ? error.message : "invalid_request";
       session.status = code === "account_exists" ? 409 : 400;
@@ -355,6 +438,51 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
         ? session.text("cloud.account.errors.accountExists")
         : session.text("cloud.account.errors.invalidRequest");
       session.respond({ error: message }, "json");
+    }
+  });
+
+  ctx.route("/api/admin/users").methods("GET").action(async (session) => {
+    if (!await service.requireAdmin(session)) return;
+    session.respond({ users: await service.list() }, "json");
+  });
+  /** Create accounts from the administration panel; registration policy does not apply. */
+  ctx.route("/api/admin/users").methods("POST").action(async (session) => {
+    const operator = await service.requireAdmin(session);
+    if (!operator) return;
+    const body = object(await session.parseRequestBody());
+    try {
+      const created = await service.register({
+        username: String(body.username ?? ""),
+        email: String(body.email ?? ""),
+        password: String(body.password ?? ""),
+      });
+      if (body.isAdmin === true) await service.setAdmin(created.id!, true);
+      logger.info(`Administrator ${operator.username} created account ${created.username}`);
+      session.status = 201;
+      session.respond({ id: created.id, username: created.username, email: created.email, is_admin: body.isAdmin === true }, "json");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      session.status = code === "account_exists" ? 409 : 400;
+      session.respond({ error: session.text(code === "account_exists" ? "cloud.account.errors.accountExists" : "cloud.account.errors.invalidRequest") }, "json");
+    }
+  });
+  ctx.route("/api/admin/users/:id/admin").methods("PUT").action(async (session, _query, id) => {
+    const operator = await service.requireAdmin(session);
+    if (!operator) return;
+    const body = object(await session.parseRequestBody());
+    const userId = Number(id);
+    if (!Number.isSafeInteger(userId) || userId < 1 || typeof body.isAdmin !== "boolean") {
+      session.status = 400; session.respond({ error: session.text("cloud.account.errors.invalidRequest") }, "json"); return;
+    }
+    try {
+      const updated = await service.setAdmin(userId, body.isAdmin);
+      if (!updated) { session.status = 404; session.respond({ error: session.text("cloud.account.errors.invalidRequest") }, "json"); return; }
+      session.respond({ id: updated.id, is_admin: service.isAdmin(updated) }, "json");
+      logger.info(`Administrator ${operator.username} ${body.isAdmin ? "granted" : "revoked"} administrator rights for ${updated.username}`);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      session.status = 400;
+      session.respond({ error: session.text(code === "keep_admin" ? "cloud.account.admin.errors.keepAdmin" : "cloud.account.admin.errors.protectedAdmin") }, "json");
     }
   });
 

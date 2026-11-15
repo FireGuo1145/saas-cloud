@@ -849,6 +849,38 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@jpgpanel/mc-instance@workspace:^, @jpgpanel/mc-instance@workspace:panels/JPGPanel/packages/mc-instance":
+  version: 0.0.0-use.local
+  resolution: "@jpgpanel/mc-instance@workspace:panels/JPGPanel/packages/mc-instance"
+  dependencies:
+    "@jpgpanel/server-instances": "workspace:*"
+    "@mirelia/dashboard": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+    "@vitejs/plugin-react": "npm:^6.0.1"
+    react: "npm:^19.2.6"
+    vite: "npm:^8.0.12"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
+"@jpgpanel/server-instances@workspace:*, @jpgpanel/server-instances@workspace:^, @jpgpanel/server-instances@workspace:panels/JPGPanel/packages/server-instances":
+  version: 0.0.0-use.local
+  resolution: "@jpgpanel/server-instances@workspace:panels/JPGPanel/packages/server-instances"
+  dependencies:
+    "@mirelia/dashboard": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+    "@mirelia/project": "workspace:*"
+    "@mirelia/store": "workspace:*"
+    "@mirelia/user": "workspace:*"
+    "@vitejs/plugin-react": "npm:^6.0.1"
+    react: "npm:^19.2.6"
+    vite: "npm:^8.0.12"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
 "@jridgewell/gen-mapping@npm:^0.3.12, @jridgewell/gen-mapping@npm:^0.3.5":
   version: 0.3.13
   resolution: "@jridgewell/gen-mapping@npm:0.3.13"
@@ -929,6 +961,8 @@ __metadata:
     "@hirarijs/loader": "npm:^1.0.20"
     "@hirarijs/loader-ts": "npm:^1.0.20"
     "@hirarijs/loader-tsx": "npm:^1.0.0"
+    "@jpgpanel/mc-instance": "workspace:^"
+    "@jpgpanel/server-instances": "workspace:^"
     "@mirelia/billing": "workspace:^"
     "@mirelia/project": "workspace:^"
     "@mirelia/rainyun": "workspace:^"
@@ -1008,13 +1042,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@mirelia/rainyun@workspace:*, @mirelia/rainyun@workspace:^, @mirelia/rainyun@workspace:packages/rainyun":
+"@mirelia/rainyun@workspace:^, @mirelia/rainyun@workspace:packages/rainyun":
   version: 0.0.0-use.local
   resolution: "@mirelia/rainyun@workspace:packages/rainyun"
   dependencies:
+    "@mirelia/billing": "workspace:*"
     "@mirelia/dashboard": "workspace:*"
     "@mirelia/database-core": "workspace:*"
     "@mirelia/project": "workspace:*"
+    "@mirelia/store": "workspace:*"
     "@vitejs/plugin-react": "npm:^6.0.1"
     react: "npm:^19.2.6"
     vite: "npm:^8.0.12"
@@ -1035,14 +1071,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@mirelia/store@workspace:^, @mirelia/store@workspace:packages/store":
+"@mirelia/store@workspace:*, @mirelia/store@workspace:^, @mirelia/store@workspace:packages/store":
   version: 0.0.0-use.local
   resolution: "@mirelia/store@workspace:packages/store"
   dependencies:
     "@mirelia/billing": "workspace:*"
     "@mirelia/dashboard": "workspace:*"
     "@mirelia/project": "workspace:*"
-    "@mirelia/rainyun": "workspace:*"
     "@mirelia/tenant": "workspace:*"
     "@mirelia/user": "workspace:*"
     "@vitejs/plugin-react": "npm:^6.0.1"

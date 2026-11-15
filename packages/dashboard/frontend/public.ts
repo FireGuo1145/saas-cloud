@@ -11,8 +11,8 @@ export { LanguageSwitcher } from "./components/LanguageSwitcher";
 export { ThemeProvider, useTheme } from "./lib/theme";
 export type { ThemeMode, ResolvedTheme } from "./lib/theme";
 export { ThemeSwitcher } from "./components/ThemeSwitcher";
-export { DashboardContext, dashboardExtension, defineExtension, registeredNavigation, registeredRoutes, registeredTopBar, subscribeExtensions, useNavigation, useRoutes, useTopBar } from "./extension";
-export type { DashboardExtensionApi, DashboardNavigationItem, DashboardRoute, DashboardTopBarItem } from "./extension";
+export { DashboardContext, dashboardExtension, defineExtension, registeredNavigation, registeredRoutes, registeredSections, registeredSlots, registeredTopBar, subscribeExtensions, useNavigation, useRoutes, useSections, useSlot, useVisibleNavigation, useTopBar } from "./extension";
+export type { DashboardExtensionApi, DashboardNavigationItem, DashboardRoute, DashboardSlotItem, DashboardTopBarItem } from "./extension";
 export * from "./vendor";
 // Star exports from React, React Router, and Lucide can hide colliding names.
 // Keep framework exports explicit so plugin bundles can import one shared runtime.

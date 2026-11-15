@@ -1,13 +1,16 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const scope = "@mirelia/";
+// Workspace packages resolved from source: `@mirelia/*` and the `@jpgpanel/*` panel plugins.
+const scopes = ["@mirelia/", "@jpgpanel/"];
 const root = path.resolve(process.env.HIRARI_WORKSPACE ?? process.cwd());
 const dirs = new Map();
 const generations = new Map();
 const loaded = new Map();
-const sourceExtensions = [".ts", ".tsx", ".mts", ".cts", ".jsx", ".js", ".mjs", ".cjs"];
+// Prefer real JavaScript over declarations: `foo.js` must win over `foo.d.ts`.
+const sourceExtensions = [".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".mts", ".cts"];
 
+function inScope(specifier) { return scopes.some((scope) => specifier.startsWith(scope)); }
 function packageDirectory(name) {
   if (dirs.has(name)) return dirs.get(name);
   let result;
@@ -25,7 +28,9 @@ function sourceEntry(directory) {
   return null;
 }
 function inWorkspace(file) { return file === root || file.startsWith(`${root}${path.sep}`); }
-function packageFile(file) { return inWorkspace(file) && file.startsWith(path.join(root, "packages") + path.sep); }
+function packageFile(file) {
+  return inWorkspace(file) && [path.join(root, "packages"), path.join(root, "panels")].some((source) => file.startsWith(source + path.sep));
+}
 function resolveFrom(base) {
   if (fs.existsSync(base) && fs.statSync(base).isFile()) return base;
   const plain = base.replace(/\.(js|mjs|cjs|jsx)$/, "");
@@ -40,7 +45,7 @@ module.exports = {
   match: () => false,
   resolve(specifier, importer) {
     if (typeof specifier !== "string" || !specifier || specifier.startsWith("node:")) return null;
-    if (specifier.startsWith(scope)) {
+    if (inScope(specifier)) {
       const name = specifier.split("/").slice(0, 2).join("/");
       if (specifier !== name) return null;
       const directory = packageDirectory(name);
@@ -59,7 +64,9 @@ module.exports = {
     }
     if (!importer || !inWorkspace(importer) || !specifier.startsWith("./") && !specifier.startsWith("../")) return null;
     let directory = importer;
-    while (directory.startsWith(path.join(root, "packages")) && directory !== path.dirname(directory)) {
+    const sourceRoots = [path.join(root, "packages"), path.join(root, "panels")];
+    const inSourceRoot = (file) => sourceRoots.some((source) => file.startsWith(source + path.sep));
+    while (inSourceRoot(directory) && directory !== path.dirname(directory)) {
       const candidate = path.join(directory, "package.json");
       if (fs.existsSync(candidate)) break;
       directory = path.dirname(directory);

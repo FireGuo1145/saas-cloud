@@ -1,6 +1,6 @@
 import { Context, Schema, Session } from "yumeri";
 import { fileURLToPath } from "node:url";
-import type { User } from "@mirelia/user";
+import type { SessionUserService, User } from "@mirelia/user";
 import "@mirelia/dashboard";
 import "@mirelia/user";
 
@@ -17,10 +17,10 @@ export const config: Schema<AuthConfig> = Schema.object({
   registrationEnabled: Schema.boolean("允许公开注册新账号").key("auth.registrationEnabled").default(true)
 });
 
-export interface UserService {
+/** Account operations the auth plugin uses on top of `ctx.component.user`. */
+export interface AuthUserService {
   authenticate(identifier: string, password: string): Promise<User | undefined>;
   register(data: { username: string; email: string; password: string }): Promise<User>;
-  current(session: Session): Promise<User | undefined>;
   establishSession(session: Session, user: User): Promise<unknown>;
   revokeSession(session: Session): Promise<void>;
 }
@@ -77,7 +77,7 @@ function respondError(session: Session, status: number, error: string) {
 }
 
 export async function apply(ctx: Context, pluginConfig: AuthConfig) {
-  const users = ctx.component.user as UserService;
+  const users = ctx.component.user as SessionUserService & AuthUserService;
   const enabled = pluginConfig?.loginEnabled !== false;
   const registrationEnabled = pluginConfig?.registrationEnabled !== false;
 

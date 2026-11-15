@@ -16,9 +16,50 @@
     },
     "@mirelia/tenant": {},
     "@mirelia/project": {},
+    "@mirelia/store": {
+      "currency": "CNY",
+      "cartItemLimit": 20,
+      "purchaseEnabled": true
+    },
+    "@jpgpanel/server-instances": {
+      "publicUrl": "http://localhost:3001",
+      "terminalBufferLines": 500,
+      "defaultGraceMs": 10000
+    },
+    "@jpgpanel/mc-instance": {
+      "handshakeTimeoutMs": 180000
+    },
     "@mirelia/auth": {
       "loginEnabled": true,
       "registrationEnabled": false
+    },
+    "@mirelia/rainyun": {
+      "apiBaseUrl": "https://api.v2.rainyun.com",
+      "apiKey": "",
+      "timeoutMs": 12000
+    },
+    "@mirelia/billing": {
+      "publicBaseUrl": "http://localhost:3001",
+      "minimumTopUpCents": 100,
+      "maximumTopUpCents": 500000,
+      "manual": {
+        "enabled": false,
+        "instructions": "请向支付宝 13800000000（张三）转账 ¥{amount}，备注订单号 {orderId}。",
+        "methods": [
+          {
+            "id": "alipay-manual",
+            "label": "支付宝转账",
+            "description": "工作日 10:00-18:00 人工确认",
+            "imageUrl": "/api/static/asset/pay/alipay.png"
+          }
+        ]
+      },
+      "epay": {
+        "enabled": false,
+        "gatewayUrl": "",
+        "pid": "",
+        "key": ""
+      }
     }
   }
 }

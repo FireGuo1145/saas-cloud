@@ -1,11 +1,12 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useNavigation, useTopBar } from "@mirelia/dashboard/frontend";
-import { useI18n, LanguageSwitcher, ThemeSwitcher } from "@mirelia/dashboard/frontend";
+import { useI18n, useSections, useTopBar, useVisibleNavigation } from "@mirelia/dashboard/frontend";
+import { LanguageSwitcher, ThemeSwitcher } from "@mirelia/dashboard/frontend";
 import { ArrowLeft, Cloud } from "lucide-react";
 
 export function DashboardFrame({ children }: { children: ReactNode }) {
-  const items = useNavigation();
+  const items = useVisibleNavigation();
+  const sections = useSections();
   const tools = useTopBar();
   const { pathname } = useLocation();
   const { t } = useI18n();
@@ -25,9 +26,38 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
     return `/${pattern.map((part, index) => part.startsWith(":") ? current[index] : part).join("/")}`;
   }
   const visibleTools = tools.filter(({ paths }) => !paths || paths.some(matchPath));
-  const scopedItems = items.filter(({ group, paths }) => Boolean(group && paths?.some(matchPath)));
-  const visibleItems = scopedItems.length ? scopedItems : items.filter(({ group, paths }) => !group && (!paths || paths.some(matchPath)));
-  const navigationGroup = scopedItems[0]?.groupKey ? t(scopedItems[0].groupKey) : scopedItems[0]?.group ?? t("cloud.nav.workspace");
+  const renderTool = ({ id, component: Component }: (typeof visibleTools)[number]) => <Component key={id} />;
+  // The most specific section wins: a project page is part of the projects section
+  // even though the store also lists it as reachable. Sections are ordered by their
+  // first entry, so deeper matches are found by scanning every path of each section.
+  const activeSection = sections.find((section) => items.some((item) => item.section === section.id && item.paths?.some(matchPath)));
+  const isScoped = Boolean(activeSection);
+  const visibleItems = isScoped
+    ? items.filter((item) => item.section === activeSection!.id)
+    : items.filter((item) => !item.section && (!item.paths || item.paths.some(matchPath)));
+  const sectionEntry = activeSection ? items.find((item) => item.section === activeSection.id) : undefined;
+  const sectionLabel = sectionEntry ? (sectionEntry.labelKey ? t(sectionEntry.labelKey) : sectionEntry.label) : undefined;
+  const current = pathname.split("/").filter(Boolean);
+  const exactItem = visibleItems.find((item) => {
+    const pattern = resolvePath(item.path).split("/").filter(Boolean);
+    return pattern.length === current.length && pattern.every((part, index) => part === current[index]);
+  });
+  const renderItem = ({ id, label, labelKey, path, icon: Icon }: (typeof visibleItems)[number]) => (
+    <NavLink
+      key={id}
+      to={resolvePath(path)}
+      end
+      className={(state) => `flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors ${(exactItem ? exactItem.id === id : state.isActive) ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+    >
+      <Icon className="size-4 shrink-0" />
+      <span className="truncate">{labelKey ? t(labelKey) : t(label)}</span>
+    </NavLink>
+  );
+  const backLink = (
+    <Link to="/" className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+      <ArrowLeft className="size-4 shrink-0" />{t("cloud.project.backToList")}
+    </Link>
+  );
   return (
     <div className="flex h-dvh min-h-[480px] flex-col overflow-hidden bg-background text-foreground">
       <header className="z-20 flex h-14 shrink-0 items-center border-b border-border bg-card">
@@ -36,32 +66,26 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
           <span>Mirelia Cloud</span>
         </Link>
         <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
-          {visibleTools.map(({ id, component: Component }) => <Component key={id} />)}
+          {visibleTools.filter((tool) => (tool.placement ?? "start") === "start").map(renderTool)}
+        </div>
+        <div className="flex shrink-0 items-center gap-1 pl-2">
+          {visibleTools.filter((tool) => tool.placement === "end").map(renderTool)}
         </div>
         <ThemeSwitcher />
         <LanguageSwitcher />
         <Link to="/account/profile" className="mr-4 grid size-8 shrink-0 place-items-center rounded-full border border-border text-xs font-medium text-muted-foreground" aria-label={t("cloud.account.profile")}>ME</Link>
       </header>
       <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-1.5 sm:hidden" aria-label={t("cloud.nav.mainNavigation")}>
-        {scopedItems.length > 0 && <Link to="/" className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground"><ArrowLeft className="size-3.5" />{t("cloud.project.backToList")}</Link>}
         {visibleItems.map(({ id, label, labelKey, path, icon: Icon }) => <NavLink key={id} to={resolvePath(path)} end className={({ isActive }) => `flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-xs ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}><Icon className="size-3.5" />{labelKey ? t(labelKey) : t(label)}</NavLink>)}
       </nav>
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-60 shrink-0 border-r border-border bg-card px-3 py-4 sm:block">
-          {scopedItems.length > 0 && <Link to="/" className="mb-4 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ArrowLeft className="size-4 shrink-0" />{t("cloud.project.backToList")}</Link>}
-          <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{navigationGroup}</div>
+        <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card px-3 py-4 sm:block">
+          {isScoped && backLink}
+          <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">
+            {sectionLabel ?? t("cloud.nav.workspace")}
+          </div>
           <nav className="space-y-1" aria-label={t("cloud.nav.mainNavigation")}>
-            {visibleItems.map(({ id, label, labelKey, path, icon: Icon }) => (
-              <NavLink
-                key={id}
-                to={resolvePath(path)}
-                end
-                className={({ isActive }) => `flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors ${isActive ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="truncate">{labelKey ? t(labelKey) : t(label)}</span>
-              </NavLink>
-            ))}
+            {visibleItems.map(renderItem)}
           </nav>
         </aside>
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>

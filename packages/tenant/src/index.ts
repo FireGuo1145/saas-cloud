@@ -1,5 +1,5 @@
 import { Context, Schema, Session } from "yumeri";
-import type { User } from "@mirelia/user";
+import type { SessionUserService, User } from "@mirelia/user";
 import "@mirelia/database-core";
 import "@mirelia/dashboard";
 
@@ -32,10 +32,8 @@ declare module "@yumerijs/types" {
 export const depend = ["database", "dashboard", "user"];
 export const provide = ["tenant"];
 
-export interface UserService {
-  current(session: Session): Promise<User | undefined>;
-  findById(id: number): Promise<User | undefined>;
-}
+/** @deprecated Use `SessionUserService` from `@mirelia/user`; `Components.user` is declared there. */
+export type UserService = SessionUserService;
 
 export interface TenantService {
   current(session: Session): Promise<Tenant | undefined>;
@@ -62,7 +60,7 @@ const roleRank: Record<TenantMembership["role"], number> = {
 };
 
 function requestedTenantId(session: Session) {
-  const value = session.client.req?.headers["x-tenant-id"];
+  const value = session.client.req?.headers?.["x-tenant-id"];
   if (value === undefined) return { provided: false, id: undefined };
   const parsed = Number(Array.isArray(value) ? value[0] : value);
   return { provided: true, id: Number.isInteger(parsed) && parsed > 0 ? parsed : undefined };
