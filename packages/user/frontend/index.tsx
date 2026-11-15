@@ -1,5 +1,6 @@
-import { ArrowRight, FolderKanban, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, FolderKanban, House, ShieldCheck, UserRound } from "lucide-react";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import HomePage from "./pages/HomePage";
 
 async function isAdmin() {
   try { return (await api.get<{ is_admin: boolean }>("/user/me")).data.is_admin === true; } catch { return false; }
@@ -116,9 +117,13 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
+  // The landing page lists every section. It is not a section of its own, otherwise
+  // every page without its own section would fall back to the home sidebar.
+  ctx.navigation({ id: "home", label: "Home", labelKey: "cloud.nav.home", path: "/", icon: House, order: 5 });
   ctx.navigation({ id: "account", label: "Account", labelKey: "cloud.account.nav.account", path: "/account", icon: UserRound, order: 10, section: "account" });
   ctx.navigation({ id: "account-profile", label: "Profile", labelKey: "cloud.account.profile", path: "/account/profile", icon: UserRound, order: 20, section: "account", paths: ["/account/profile"] });
   ctx.navigation({ id: "admin-users", label: "Users", labelKey: "cloud.account.admin.nav.users", path: "/admin/users", icon: ShieldCheck, order: 10, section: "admin", paths: ["/admin/users"], visible: isAdmin });
+  ctx.route({ path: "/", component: HomePage, shell: "dashboard" });
   ctx.route({ path: "/account", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });
   ctx.route({ path: "/admin/users", component: AdminUsersPage, shell: "dashboard" });

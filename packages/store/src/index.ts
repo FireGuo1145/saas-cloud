@@ -252,7 +252,7 @@ export function totalCents(unitPriceCents: number, quantity: number) { return un
 
 export async function apply(ctx: Context, pluginConfig: StoreConfig = { currency: "CNY", cartItemLimit: 20, purchaseEnabled: true }) {
   ctx.i18n({ cloud: { store: {
-    nav: { section: { zh: "商城", en: "Store", ja: "ストア" }, catalog: { zh: "商品目录", en: "Catalog", ja: "カタログ" }, cart: { zh: "购物车", en: "Cart", ja: "カート" }, orders: { zh: "我的订单", en: "Orders", ja: "注文履歴" } },
+    nav: { section: { zh: "商城", en: "Store", ja: "ストア" }, catalog: { zh: "全部商品", en: "All products", ja: "すべての製品" }, cart: { zh: "购物车", en: "Cart", ja: "カート" }, orders: { zh: "我的订单", en: "Orders", ja: "注文履歴" } },
     title: { zh: "云产品商城", en: "Cloud product store", ja: "クラウド製品ストア" },
     description: { zh: "选择云产品、加入购物车并结算，购买后会直接关联到所选项目。", en: "Pick cloud products, add them to your cart and check out. Purchases are linked to a project you choose.", ja: "クラウド製品を選び、カートに入れて購入すると、選択したプロジェクトに関連付けられます。" },
     products: { zh: "个商品", en: "products", ja: "製品" },

@@ -43,6 +43,12 @@ export interface UserConfig {
   adminUsername: string;
   adminEmail: string;
   adminPassword: string;
+  /**
+   * Accounts that are site administrators, by username. The configured bootstrap
+   * administrator is always included; databases created before the list existed
+   * fall back to the stored `is_admin` column.
+   */
+  admins: string[];
 }
 
 export interface UserService {
@@ -112,10 +118,31 @@ export const config: Schema<UserConfig> = Schema.object({
   adminUsername: Schema.string("管理员用户名，留空时不创建初始管理员").key("user.adminUsername").default(""),
   adminEmail: Schema.string("管理员邮箱，留空时使用用户名加 @localhost").key("user.adminEmail").default(""),
   adminPassword: Schema.string("管理员密码，至少 12 个字符").key("user.adminPassword").default(""),
+  admins: Schema.array(Schema.string("站点管理员用户名"), "站点管理员列表（用户名），启动时同步")
+    .key("user.admins").default([]),
 });
 
-export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUsername: "", adminEmail: "", adminPassword: "" }) {
-  ctx.i18n({ cloud: { account: {
+export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUsername: "", adminEmail: "", adminPassword: "", admins: [] }) {
+  ctx.i18n({ cloud: { home: {
+    greeting: { zh: "你好，{username}", en: "Hello, {username}", ja: "こんにちは、{username} さん" },
+    subtitle: { zh: "从这里进入项目、实例、商城与账单。", en: "Jump into your projects, instances, store and billing.", ja: "プロジェクト、インスタンス、ストア、請求へ移動します。" },
+    balance: { zh: "账户余额", en: "Account balance", ja: "アカウント残高" },
+    balanceHint: { zh: "余额用于购买商城商品与充值实例。", en: "The balance pays for store purchases and instances.", ja: "残高はストアの購入やインスタンスに使われます。" },
+    topUp: { zh: "充值", en: "Add funds", ja: "チャージ" },
+    projects: { zh: "项目", en: "Projects", ja: "プロジェクト" },
+    projectsHint: { zh: "整理并管理你的云资源。", en: "Organise and manage your cloud resources.", ja: "クラウドリソースを整理・管理します。" },
+    openProjects: { zh: "打开项目列表", en: "Open projects", ja: "プロジェクト一覧を開く" },
+    instances: { zh: "我的实例", en: "Instances", ja: "インスタンス" },
+    instancesHint: { zh: "启动、停止并连接已分配的服务器。", en: "Start, stop and connect your servers.", ja: "割り当てられたサーバーの起動・停止・接続を行います。" },
+    store: { zh: "商城", en: "Store", ja: "ストア" },
+    storeHint: { zh: "购买云服务器与实例。", en: "Buy cloud servers and instances.", ja: "クラウドサーバーやインスタンスを購入します。" },
+    orders: { zh: "我的订单", en: "Orders", ja: "注文履歴" },
+    ordersHint: { zh: "查看购买记录与交付状态。", en: "Review purchases and delivery state.", ja: "購入履歴と提供状況を確認します。" },
+    quickLinks: { zh: "快捷入口", en: "Quick links", ja: "クイックリンク" },
+    administration: { zh: "站点管理", en: "Administration", ja: "サイト管理" },
+    administrationHint: { zh: "用户、充值确认与实例规格。", en: "Users, payment review and instance specifications.", ja: "ユーザー、入金確認、インスタンス仕様。" },
+    memberSince: { zh: "注册于", en: "Member since", ja: "登録日" },
+  }, account: {
     nav: { account: { zh: "账户", en: "Account", ja: "アカウント" } },
     title: { zh: "账户", en: "Account", ja: "アカウント" },
     home: { zh: "账户首页", en: "Account home", ja: "アカウントホーム" },
@@ -188,6 +215,8 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
   }, { unique: ["token_hash"] });
 
   let adminUserId: number | undefined;
+  /** Usernames configured as administrators; the source of truth for administration rights. */
+  const configuredAdmins = new Set<string>();
   const adminUsername = normalizeUsername(pluginConfig.adminUsername ?? "");
   const adminPassword = pluginConfig.adminPassword ?? "";
   const adminEmail = normalizeEmail(pluginConfig.adminEmail || `${adminUsername}@localhost.localdomain`);
@@ -235,6 +264,25 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
       logger.info(`Administrator account "${adminUsername}" created from user configuration`);
     }
   }
+
+  const listedAdmins = Array.isArray(pluginConfig.admins) ? pluginConfig.admins : [];
+  for (const entry of listedAdmins) {
+    const username = normalizeUsername(String(entry ?? ""));
+    if (!username) continue;
+    configuredAdmins.add(username.toLowerCase());
+  }
+  // Without an explicit list the bootstrap administrator is the only administrator.
+  if (!listedAdmins.some((entry) => normalizeUsername(String(entry ?? ""))) && adminUsername) configuredAdmins.add(adminUsername.toLowerCase());
+  logger.info(`Site administrators in configuration: ${[...configuredAdmins].join(", ") || "(none)"}`);
+  // Mirror the configured list into the stored flag so both stay consistent.
+  for (const account of await db.select("users", {}) as User[]) {
+    if (account.id === undefined) continue;
+    const configured = configuredAdmins.has(normalizeUsername(account.username).toLowerCase());
+    if (configured === Boolean(account.is_admin)) continue;
+    await db.update("users", { id: account.id }, { is_admin: configured, updated_at: new Date().toISOString() });
+    logger.info(`Administrator rights ${configured ? "granted to" : "revoked from"} "${account.username}" from configuration`);
+  }
+  if (configuredAdmins.size) logger.info(`Site administrators: ${[...configuredAdmins].join(", ")}`);
 
   const service: UserService = {
     async authenticate(identifier, password) {
@@ -371,9 +419,12 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
 
     isAdmin(user) {
       if (user.id === undefined) return false;
-      // The configured bootstrap administrator stays in charge even if the stored
-      // flag was removed for that account.
-      return Boolean(user.is_admin) || (adminUserId !== undefined && user.id === adminUserId);
+      // The configuration is authoritative: `user.admins` decides who administers the
+      // site, so removing the bootstrap account from it really revokes its rights.
+      if (configuredAdmins.size) return configuredAdmins.has(normalizeUsername(user.username).toLowerCase());
+      if (adminUserId !== undefined && user.id === adminUserId) return true;
+      // Databases created before `user.admins` existed keep working from the stored flag.
+      return Boolean(user.is_admin);
     },
 
     async requireAdmin(session) {
@@ -394,15 +445,18 @@ export async function apply(ctx: Context, pluginConfig: UserConfig = { adminUser
 
     async setAdmin(id, next) {
       const target = await db.selectOne("users", { id }) as User | undefined;
-      if (!target) return undefined;
-      if (!next && adminUserId !== undefined && target.id === adminUserId) throw new Error("protected_admin");
+      if (!target?.id) return undefined;
+      const username = normalizeUsername(target.username);
+      // Without a configured list the UI still works, but the change only lives in the
+      // database; with a list, the panel edits it and the file keeps the last word.
       if (!next) {
-        // Count every administrator by effective rights, so the configured bootstrap
-        // administrator always keeps the site manageable.
+        if (adminUserId !== undefined && target.id === adminUserId && !configuredAdmins.size) throw new Error("protected_admin");
         const remaining = (await db.select("users", {}) as User[]).filter((user) => user.id !== id && service.isAdmin(user));
         if (!remaining.length) throw new Error("keep_admin");
       }
       await db.update("users", { id }, { is_admin: next, updated_at: new Date().toISOString() });
+      if (next) configuredAdmins.add(username.toLowerCase());
+      else configuredAdmins.delete(username.toLowerCase());
       return db.selectOne("users", { id });
     },
   };

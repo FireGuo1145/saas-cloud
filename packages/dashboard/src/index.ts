@@ -43,6 +43,8 @@ export async function apply(ctx: Context) {
     },
     nav: {
       workspace: { zh: "工作区", en: "Workspace", ja: "ワークスペース" },
+      home: { zh: "主页", en: "Home", ja: "ホーム" },
+      backHome: { zh: "返回主页", en: "Back to home", ja: "ホームに戻る" },
       project: { zh: "项目", en: "Project", ja: "プロジェクト" },
       mainNavigation: { zh: "主导航", en: "Main navigation", ja: "メインナビゲーション" },
     },

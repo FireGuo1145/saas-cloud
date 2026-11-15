@@ -31,12 +31,22 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
   // even though the store also lists it as reachable. Sections are ordered by their
   // first entry, so deeper matches are found by scanning every path of each section.
   const activeSection = sections.find((section) => items.some((item) => item.section === section.id && item.paths?.some(matchPath)));
-  const isScoped = Boolean(activeSection);
-  const visibleItems = isScoped
-    ? items.filter((item) => item.section === activeSection!.id)
+  const sectionItems = activeSection ? items.filter((item) => item.section === activeSection.id) : [];
+  // A section that lists its own entry point (the home sidebar, the store catalogue)
+  // keeps that entry visible; deeper sections such as a single project do not repeat it.
+  const sectionRoot = activeSection ? sectionItems.find((item) => !item.paths || item.paths.includes(item.path)) : undefined;
+  const subPaths = activeSection ? sectionItems.filter((item) => item !== sectionRoot) : [];
+  const repeatedEntry = Boolean(sectionRoot && sectionRoot.paths?.some(matchPath));
+  const visibleItems = activeSection
+    ? sectionItems.filter((item) => item !== sectionRoot || repeatedEntry)
     : items.filter((item) => !item.section && (!item.paths || item.paths.some(matchPath)));
   const sectionEntry = activeSection ? items.find((item) => item.section === activeSection.id) : undefined;
   const sectionLabel = sectionEntry ? (sectionEntry.labelKey ? t(sectionEntry.labelKey) : sectionEntry.label) : undefined;
+  // The home sidebar is a set of global destinations: render it as a plain list without
+  // the section heading or a back link, which would only point at itself.
+  const isGlobalSection = Boolean(activeSection && sectionRoot && !subPaths.length && sectionRoot.path === "/");
+  const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
+  const backTarget = activeSection ? `/projects/${projectMatch?.[1] ?? ""}` : "/";
   const current = pathname.split("/").filter(Boolean);
   const exactItem = visibleItems.find((item) => {
     const pattern = resolvePath(item.path).split("/").filter(Boolean);
@@ -54,8 +64,8 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
     </NavLink>
   );
   const backLink = (
-    <Link to="/" className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-      <ArrowLeft className="size-4 shrink-0" />{t("cloud.project.backToList")}
+    <Link to={backTarget} className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+      <ArrowLeft className="size-4 shrink-0" />{projectMatch ? t("cloud.project.backToList") : t("cloud.nav.backHome")}
     </Link>
   );
   return (
@@ -80,10 +90,8 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
       </nav>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card px-3 py-4 sm:block">
-          {isScoped && backLink}
-          <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">
-            {sectionLabel ?? t("cloud.nav.workspace")}
-          </div>
+          {activeSection && !isGlobalSection && backLink}
+          {!isGlobalSection && <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{sectionLabel}</div>}
           <nav className="space-y-1" aria-label={t("cloud.nav.mainNavigation")}>
             {visibleItems.map(renderItem)}
           </nav>
