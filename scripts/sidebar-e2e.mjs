@@ -30,7 +30,8 @@ for (const file of fronts) {
 }
 const paths = [
   "/", "/projects", "/projects/2", "/projects/2/settings", "/projects/2/members", "/projects/2/products", "/projects/2/rainyun",
-  "/store", "/store/cart", "/store/orders", "/instances", "/instances/srv_1",
+  "/store", "/store/cart", "/store/orders", "/instances",
+  "/instances/srv_1", "/instances/srv_1/console", "/instances/srv_1/terminal", "/instances/srv_1/config", "/instances/srv_1/files", "/instances/srv_1/tools",
   "/account", "/account/profile", "/account/billing", "/admin/users", "/admin/payments", "/admin/instances/specs",
 ];
 const failures = [];
