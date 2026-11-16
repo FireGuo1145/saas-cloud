@@ -26,6 +26,18 @@
       "terminalBufferLines": 500,
       "defaultGraceMs": 10000
     },
+    "@jpgpanel/file-manager": {
+      "maxEditBytes": 2097152,
+      "maxUploadBytes": 67108864,
+      "hidden": [
+        ".jar-name"
+      ],
+      "backupKeep": 10
+    },
+    "@jpgpanel/backup": {
+      "intervalMinutes": 15,
+      "onlyConfigured": true
+    },
     "@jpgpanel/mc-instance": {
       "handshakeTimeoutMs": 180000
     },

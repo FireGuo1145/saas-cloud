@@ -849,16 +849,39 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@jpgpanel/backup@workspace:^, @jpgpanel/backup@workspace:panels/JPGPanel/packages/backup":
+  version: 0.0.0-use.local
+  resolution: "@jpgpanel/backup@workspace:panels/JPGPanel/packages/backup"
+  dependencies:
+    "@jpgpanel/server-instances": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
+"@jpgpanel/file-manager@workspace:^, @jpgpanel/file-manager@workspace:panels/JPGPanel/packages/file-manager":
+  version: 0.0.0-use.local
+  resolution: "@jpgpanel/file-manager@workspace:panels/JPGPanel/packages/file-manager"
+  dependencies:
+    "@jpgpanel/server-instances": "workspace:*"
+    "@mirelia/dashboard": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+    "@mirelia/user": "workspace:*"
+    "@vitejs/plugin-react": "npm:^6.0.1"
+    react: "npm:^19.2.6"
+    vite: "npm:^8.0.12"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
 "@jpgpanel/mc-instance@workspace:^, @jpgpanel/mc-instance@workspace:panels/JPGPanel/packages/mc-instance":
   version: 0.0.0-use.local
   resolution: "@jpgpanel/mc-instance@workspace:panels/JPGPanel/packages/mc-instance"
   dependencies:
     "@jpgpanel/server-instances": "workspace:*"
-    "@mirelia/dashboard": "workspace:*"
     "@mirelia/database-core": "workspace:*"
-    "@vitejs/plugin-react": "npm:^6.0.1"
-    react: "npm:^19.2.6"
-    vite: "npm:^8.0.12"
   peerDependencies:
     yumeri: ^3.1.4
   languageName: unknown
@@ -961,6 +984,8 @@ __metadata:
     "@hirarijs/loader": "npm:^1.0.20"
     "@hirarijs/loader-ts": "npm:^1.0.20"
     "@hirarijs/loader-tsx": "npm:^1.0.0"
+    "@jpgpanel/backup": "workspace:^"
+    "@jpgpanel/file-manager": "workspace:^"
     "@jpgpanel/mc-instance": "workspace:^"
     "@jpgpanel/server-instances": "workspace:^"
     "@mirelia/billing": "workspace:^"
