@@ -130,6 +130,18 @@ export default function apply(ctx: DashboardContext) {
 
   ctx.section({ id: "admin", basePath: "/admin", labelKey: "cloud.account.admin.nav.section", backPath: "/", order: 20 });
   ctx.navigation({ id: "admin-users", label: "Users", labelKey: "cloud.account.admin.nav.users", path: "/admin/users", icon: ShieldCheck, order: 10, section: "admin", visible: isAdmin });
+
+  // Each page registers its own sidebar.
+  const homeSidebar = ["home", "projects", "instances", "store"];
+  const accountSidebar = ["account", "account-profile", "billing"];
+  const adminSidebar = ["admin-users", "admin-payments", "instances-specs"];
+  ctx.sidebar({ path: "/", section: "home", items: homeSidebar });
+  ctx.sidebar({ path: "/account", section: "account", items: accountSidebar });
+  ctx.sidebar({ path: "/account/profile", section: "account", items: accountSidebar });
+  ctx.sidebar({ path: "/account/billing", section: "account", items: accountSidebar });
+  ctx.sidebar({ path: "/admin/users", section: "admin", items: adminSidebar });
+  ctx.sidebar({ path: "/admin/payments", section: "admin", items: adminSidebar });
+  ctx.sidebar({ path: "/admin/instances/specs", section: "admin", items: adminSidebar });
   ctx.route({ path: "/", component: HomePage, shell: "dashboard" });
   ctx.route({ path: "/account", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });

@@ -1,23 +1,17 @@
 import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
-import { normalizeBase, pathWithin, resolveSidebar } from "./navigation.js";
-export { normalizeBase, pathWithin, resolveSidebar } from "./navigation.js";
+import { normalizeBase, normalizeSidebarPath, pathWithin, resolveSidebar } from "./navigation.js";
+export { normalizeBase, normalizeSidebarPath, pathWithin, resolveSidebar } from "./navigation.js";
 export type { SidebarEntry, SidebarState } from "./navigation.js";
 
 export interface DashboardRoute { path: string; component: ComponentType; shell?: "owned" | "dashboard" }
-/**
- * A sidebar. A section owns a route prefix and every navigation entry registered with
- * that section appears in its sidebar. One prefix always maps to exactly one section,
- * so pages can never fall into a different sidebar than their owner intended.
- */
+/** A group of pages such as `/projects`: it provides the sidebar heading and back link. */
 export interface DashboardSection {
   id: string;
   /** Route prefix such as `/projects`; `/` covers the landing pages. */
   basePath: string;
   label?: string;
   labelKey?: string;
-  /** Entry the section title links to; defaults to `basePath`. */
-  homePath?: string;
-  /** Back link target shown above the section entries. */
+  /** Back link target shown above the sidebar entries. */
   backPath?: string;
   backLabelKey?: string;
   order?: number;
@@ -32,13 +26,27 @@ export interface DashboardNavigationItem {
   /** Extra visibility rule evaluated in the browser, used for administrator-only routes. */
   visible?: () => Promise<boolean> | boolean;
 }
+/**
+ * The sidebar of one page. Every page registers what its sidebar shows, so
+ * `/projects` and `/projects/:id` (or each settings page) can differ freely.
+ */
+export interface DashboardSidebar {
+  /** Page pattern this sidebar belongs to, for example `/projects/:id/settings`. */
+  path: string;
+  /** Section id; the sidebar renders that section's heading and back link. */
+  section?: string;
+  /** Navigation ids shown, in this order. Empty means a sidebar without entries. */
+  items: string[];
+}
 export interface DashboardTopBarItem { id: string; component: ComponentType; paths?: string[]; placement?: "start" | "end"; order?: number }
 /** A component contributed into a named slot owned by another plugin. */
 export interface DashboardSlotItem { slot: string; id: string; component: ComponentType<never>; order?: number }
 export interface DashboardExtensionApi {
   route(route: DashboardRoute): () => void;
-  /** Declare a sidebar for a route prefix. Register at most one section per prefix. */
+  /** Register a page group (heading and back link). One section per route prefix. */
   section(section: DashboardSection): () => void;
+  /** Register the sidebar of a page. The most specific path wins. */
+  sidebar(sidebar: DashboardSidebar): () => void;
   navigation(item: DashboardNavigationItem): () => void;
   topBar(item: DashboardTopBarItem): () => void;
   /** Contribute a component into a slot another plugin renders. */
@@ -46,6 +54,7 @@ export interface DashboardExtensionApi {
 }
 const routes: DashboardRoute[] = [];
 const sections: DashboardSection[] = [];
+const sidebars: DashboardSidebar[] = [];
 const navigation: DashboardNavigationItem[] = [];
 const topBar: DashboardTopBarItem[] = [];
 const slots: DashboardSlotItem[] = [];
@@ -71,6 +80,17 @@ export const dashboardExtension: DashboardExtensionApi = {
       if (index >= 0) { sections.splice(index, 1); notify(); }
     };
   },
+  sidebar: (sidebar) => {
+    const path = normalizeSidebarPath(sidebar.path);
+    const existing = sidebars.findIndex((entry) => entry.path === path);
+    if (existing >= 0) sidebars[existing] = { ...sidebar, path };
+    else sidebars.push({ ...sidebar, path });
+    notify();
+    return () => {
+      const index = sidebars.findIndex((entry) => entry.path === path);
+      if (index >= 0) { sidebars.splice(index, 1); notify(); }
+    };
+  },
   navigation: (item) => register(navigation, item),
   topBar: (item) => register(topBar, item),
   slot: (item) => register(slots, item),
@@ -80,6 +100,7 @@ export class DashboardContext {
   constructor(private readonly api = dashboardExtension) {}
   route(route: DashboardRoute) { this.effects.push(this.api.route(route)); }
   section(section: DashboardSection) { this.effects.push(this.api.section(section)); }
+  sidebar(sidebar: DashboardSidebar) { this.effects.push(this.api.sidebar(sidebar)); }
   navigation(item: DashboardNavigationItem) { this.effects.push(this.api.navigation(item)); }
   topBar(item: DashboardTopBarItem) { this.effects.push(this.api.topBar(item)); }
   slot(item: DashboardSlotItem) { this.effects.push(this.api.slot(item)); }
@@ -101,8 +122,10 @@ export function registeredSections() {
     .map(({ section }) => section);
 }
 export function useSections() { useSyncExternalStore(subscribeExtensions, () => revision, () => revision); return registeredSections(); }
-/** The sidebar owning `pathname`; the longest matching section prefix wins. */
-export function sidebarState(pathname: string) { return resolveSidebar(pathname, registeredSections(), registeredNavigation()); }
+/** The sidebar registered for `pathname`; the most specific page pattern wins. */
+export function sidebarState(pathname: string) { return resolveSidebar(pathname, registeredSections(), registeredSidebars(), registeredNavigation()); }
+export function useSidebars() { useSyncExternalStore(subscribeExtensions, () => revision, () => revision); return registeredSidebars(); }
+export function registeredSidebars() { return [...sidebars]; }
 export function sectionFor(pathname: string) { return sidebarState(pathname).section; }
 /**
  * Navigation entries whose `visible` rule (when present) currently allows them.

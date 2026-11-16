@@ -1,4 +1,4 @@
-import type { DashboardNavigationItem, DashboardSection } from "./extension.js";
+import type { DashboardNavigationItem, DashboardSection, DashboardSidebar } from "./extension.js";
 
 export function normalizeBase(basePath: string) {
   const trimmed = `/${String(basePath ?? "").split("/").filter(Boolean).join("/")}`;
@@ -42,36 +42,52 @@ export function resolveRoute(pattern: string, pathname: string) {
   }).join("/");
 }
 
+/** Normalise a page pattern: drop duplicate and trailing slashes. */
+export function normalizeSidebarPath(path: string) {
+  const trimmed = `/${String(path ?? "").split("/").filter(Boolean).join("/")}`;
+  return trimmed === "/" ? "/" : trimmed;
+}
+
 export interface SidebarEntry extends DashboardNavigationItem { matched: boolean }
 export interface SidebarState {
+  /** Sidebar registered for this page, if any. */
+  sidebar?: DashboardSidebar;
+  /** Group of pages the sidebar belongs to; supplies the heading and back link. */
   section?: DashboardSection;
+  /** Entries in the order the page registered them. */
   entries: SidebarEntry[];
-  /** Whether the current path is the page the section calls its home. */
-  isLanding: boolean;
+  params: Record<string, string>;
 }
 
 /**
- * Resolve the sidebar for a path. The longest matching section prefix owns the page, so
- * `/projects` and `/projects/:id` share the projects sidebar while `/store` never leaks
- * into it. Entries are returned with `matched` telling whether they point at this page;
- * patterns with parameters are compared structurally.
+ * Resolve the sidebar for a path.
+ *
+ * Plugins register a sidebar per page pattern; the most specific matching pattern wins.
+ * A page without its own sidebar falls back to its section's base path, so a new sub page
+ * still renders the group heading instead of an empty area.
  */
 export function resolveSidebar(
   pathname: string,
   sections: DashboardSection[],
+  sidebars: DashboardSidebar[],
   navigation: DashboardNavigationItem[],
 ): SidebarState {
   const current = normalizeBase(pathname);
-  const matches = sections
-    .map((section, index) => ({ section, index, base: normalizeBase(section.basePath) }))
-    .filter((entry) => pathWithin(entry.base, current))
-    .sort((a, b) => b.base.length - a.base.length || (a.section.order ?? 100) - (b.section.order ?? 100) || a.index - b.index);
-  const section = matches[0]?.section;
-  const entries = navigation
-    .filter((item) => item.section === section?.id)
+  const matches = sidebars
+    .map((sidebar) => ({ sidebar, path: normalizeSidebarPath(sidebar.path), params: matchRoute(normalizeSidebarPath(sidebar.path), current) }))
+    .filter((entry): entry is { sidebar: DashboardSidebar; path: string; params: Record<string, string> } => Boolean(entry.params))
+    .sort((a, b) => b.path.length - a.path.length);
+  const active = matches[0];
+  const section = active?.sidebar.section
+    ? sections.find((entry) => entry.id === active.sidebar.section)
+    : sections
+      .map((section) => ({ section, base: normalizeBase(section.basePath) }))
+      .filter((entry) => pathWithin(entry.base, current))
+      .sort((a, b) => b.base.length - a.base.length)[0]?.section;
+  const ids = active?.sidebar.items ?? [];
+  const entries = ids
+    .map((id) => navigation.find((item) => item.id === id))
+    .filter((item): item is DashboardNavigationItem => Boolean(item))
     .map((item) => ({ ...item, matched: Boolean(matchRoute(normalizeBase(item.path), current)) }));
-  // A section lists several landing pages: its own base path and any extra `homePath`
-  // entries (the project list and a single project are both "home" for projects).
-  const homes = [section?.basePath ?? "/", ...(section?.homePath ? [section.homePath] : [])].map((pattern) => normalizeBase(pattern));
-  return { section, entries, isLanding: homes.some((pattern) => Boolean(matchRoute(pattern, current))) };
+  return { sidebar: active?.sidebar, section, entries, params: active?.params ?? {} };
 }

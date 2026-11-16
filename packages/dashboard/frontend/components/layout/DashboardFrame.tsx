@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
-import { pathWithin, sidebarState, useI18n, useTopBar, useVisibleNavigation } from "@mirelia/dashboard/frontend";
+import { sidebarState, useI18n, useTopBar, useVisibleNavigation } from "@mirelia/dashboard/frontend";
 import { LanguageSwitcher, ThemeSwitcher } from "@mirelia/dashboard/frontend";
 import { ArrowLeft, Cloud } from "lucide-react";
 
@@ -22,15 +22,12 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
     return segments.length === current.length && segments.every((part, index) => part.startsWith(":") || part === current[index]);
   }
 
-  // The sidebar is chosen by the route prefix of the current path; the section declares
-  // which entries it shows, so /projects and /projects/2 never disagree about ownership.
-  const { section, entries, isLanding } = sidebarState(pathname);
-  // Visibility rules (administrator-only entries) apply on top of the section.
+  // Every page registers its own sidebar; the most specific pattern wins.
+  const { section, entries } = sidebarState(pathname);
+  // Visibility rules (administrator-only entries) apply on top of the registered list.
   const allowed = new Set(items.map((item) => item.id));
   const sectionEntries = entries.filter((entry) => allowed.has(entry.id));
-  // An entry that points at the current page is redundant: the project list keeps
-  // "Projects", a single project drops it.
-  const visibleItems = sectionEntries.filter((entry) => !entry.matched);
+  const visibleItems = sectionEntries;
   const activeId = sectionEntries.find((entry) => entry.matched)?.id;
 
   const visibleTools = tools.filter(({ paths }) => !paths || paths.some(matchesPattern));
@@ -44,7 +41,6 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
 
   const sectionLabel = section ? (section.labelKey ? t(section.labelKey) : section.label) : undefined;
   const backLabel = section?.backLabelKey ? t(section.backLabelKey) : t("cloud.nav.backHome");
-  void pathWithin;
 
   return (
     <div className="flex h-dvh min-h-[480px] flex-col overflow-hidden bg-background text-foreground">
@@ -68,7 +64,7 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
       </nav>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card px-3 py-4 sm:block">
-          {section?.backPath && !isLanding && <Link to={section.backPath} className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ArrowLeft className="size-4 shrink-0" />{backLabel}</Link>}
+          {section?.backPath && !section?.basePath?.includes(":") && pathname !== section.backPath && <Link to={section.backPath} className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ArrowLeft className="size-4 shrink-0" />{backLabel}</Link>}
           {sectionLabel && <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{sectionLabel}</div>}
           <nav className="space-y-1" aria-label={t("cloud.nav.mainNavigation")}>
             {visibleItems.map(renderItem)}
