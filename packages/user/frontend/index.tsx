@@ -1,4 +1,4 @@
-import { ArrowRight, FolderKanban, House, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, FolderKanban, House, Server, ShieldCheck, ShoppingBag, UserRound } from "lucide-react";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import HomePage from "./pages/HomePage";
 
@@ -117,12 +117,19 @@ function ProfilePage() {
 }
 
 export default function apply(ctx: DashboardContext) {
-  // The landing page lists every section. It is not a section of its own, otherwise
-  // every page without its own section would fall back to the home sidebar.
-  ctx.navigation({ id: "home", label: "Home", labelKey: "cloud.nav.home", path: "/", icon: House, order: 5 });
+  // The landing sidebar lists every section; each section below owns its route prefix.
+  ctx.section({ id: "home", basePath: "/", labelKey: "cloud.nav.workspace", order: 0 });
+  ctx.navigation({ id: "home", label: "Dashboard", labelKey: "cloud.nav.home", path: "/", icon: House, order: 5, section: "home" });
+  ctx.navigation({ id: "projects", label: "Projects", labelKey: "cloud.project.nav.projects", path: "/projects", icon: FolderKanban, order: 10, section: "home" });
+  ctx.navigation({ id: "instances", label: "Instances", labelKey: "cloud.instances.nav.instances", path: "/instances", icon: Server, order: 20, section: "home" });
+  ctx.navigation({ id: "store", label: "Store", labelKey: "cloud.store.nav.section", path: "/store", icon: ShoppingBag, order: 30, section: "home" });
+
+  ctx.section({ id: "account", basePath: "/account", labelKey: "cloud.account.nav.account", backPath: "/", order: 10 });
   ctx.navigation({ id: "account", label: "Account", labelKey: "cloud.account.nav.account", path: "/account", icon: UserRound, order: 10, section: "account" });
-  ctx.navigation({ id: "account-profile", label: "Profile", labelKey: "cloud.account.profile", path: "/account/profile", icon: UserRound, order: 20, section: "account", paths: ["/account/profile"] });
-  ctx.navigation({ id: "admin-users", label: "Users", labelKey: "cloud.account.admin.nav.users", path: "/admin/users", icon: ShieldCheck, order: 10, section: "admin", paths: ["/admin/users"], visible: isAdmin });
+  ctx.navigation({ id: "account-profile", label: "Profile", labelKey: "cloud.account.profile", path: "/account/profile", icon: UserRound, order: 20, section: "account" });
+
+  ctx.section({ id: "admin", basePath: "/admin", labelKey: "cloud.account.admin.nav.section", backPath: "/", order: 20 });
+  ctx.navigation({ id: "admin-users", label: "Users", labelKey: "cloud.account.admin.nav.users", path: "/admin/users", icon: ShieldCheck, order: 10, section: "admin", visible: isAdmin });
   ctx.route({ path: "/", component: HomePage, shell: "dashboard" });
   ctx.route({ path: "/account", component: AccountHomePage, shell: "dashboard" });
   ctx.route({ path: "/account/profile", component: ProfilePage, shell: "dashboard" });

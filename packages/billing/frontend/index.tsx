@@ -13,8 +13,8 @@ async function isAdmin() {
 }
 
 export default function apply(ctx: DashboardContext) {
-  ctx.navigation({ id: "billing", label: "Billing", labelKey: "cloud.billing.nav.billing", path: "/account/billing", icon: CreditCard, order: 30, section: "account", paths: ["/account/billing"] });
-  ctx.navigation({ id: "admin-payments", label: "Payments", labelKey: "cloud.billing.admin.nav.orders", path: "/admin/payments", icon: ReceiptText, order: 20, section: "admin", paths: ["/admin/payments"], visible: isAdmin });
+  ctx.navigation({ id: "billing", label: "Billing", labelKey: "cloud.billing.nav.billing", path: "/account/billing", icon: CreditCard, order: 30, section: "account" });
+  ctx.navigation({ id: "admin-payments", label: "Payments", labelKey: "cloud.billing.admin.nav.orders", path: "/admin/payments", icon: ReceiptText, order: 20, section: "admin", visible: isAdmin });
   ctx.route({ path: "/account/billing", component: BillingPage, shell: "dashboard" });
   ctx.route({ path: "/admin/payments", component: AdminPaymentsPage, shell: "dashboard" });
 }

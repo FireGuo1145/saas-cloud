@@ -1,73 +1,51 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useI18n, useSections, useTopBar, useVisibleNavigation } from "@mirelia/dashboard/frontend";
+import { pathWithin, sidebarState, useI18n, useTopBar, useVisibleNavigation } from "@mirelia/dashboard/frontend";
 import { LanguageSwitcher, ThemeSwitcher } from "@mirelia/dashboard/frontend";
 import { ArrowLeft, Cloud } from "lucide-react";
 
 export function DashboardFrame({ children }: { children: ReactNode }) {
   const items = useVisibleNavigation();
-  const sections = useSections();
   const tools = useTopBar();
   const { pathname } = useLocation();
   const { t } = useI18n();
-  function matchPath(pattern: string) {
-    const segments = pattern.split("/").filter(Boolean);
-    const current = pathname.split("/").filter(Boolean);
-    if (segments.at(-1) === "*") {
-      if (current.length < segments.length - 1) return false;
-      return segments.slice(0, -1).every((part, index) => part.startsWith(":") || part === current[index]);
-    }
-    if (segments.length !== current.length) return false;
-    return segments.every((part, index) => part.startsWith(":") || part === current[index]);
-  }
+
+  /** Fill `:params` of an entry path from the current location. */
   function resolvePath(path: string) {
     const pattern = path.split("/").filter(Boolean);
     const current = pathname.split("/").filter(Boolean);
-    return `/${pattern.map((part, index) => part.startsWith(":") ? current[index] : part).join("/")}`;
+    return `/${pattern.map((part, index) => part.startsWith(":") ? current[index] ?? "" : part).join("/")}`;
   }
-  const visibleTools = tools.filter(({ paths }) => !paths || paths.some(matchPath));
+  function matchesPattern(pattern: string) {
+    const segments = pattern.split("/").filter(Boolean);
+    const current = pathname.split("/").filter(Boolean);
+    return segments.length === current.length && segments.every((part, index) => part.startsWith(":") || part === current[index]);
+  }
+
+  // The sidebar is chosen by the route prefix of the current path; the section declares
+  // which entries it shows, so /projects and /projects/2 never disagree about ownership.
+  const { section, entries, isLanding } = sidebarState(pathname);
+  // Visibility rules (administrator-only entries) apply on top of the section.
+  const allowed = new Set(items.map((item) => item.id));
+  const sectionEntries = entries.filter((entry) => allowed.has(entry.id));
+  // An entry that points at the current page is redundant: the project list keeps
+  // "Projects", a single project drops it.
+  const visibleItems = sectionEntries.filter((entry) => !entry.matched);
+  const activeId = sectionEntries.find((entry) => entry.matched)?.id;
+
+  const visibleTools = tools.filter(({ paths }) => !paths || paths.some(matchesPattern));
   const renderTool = ({ id, component: Component }: (typeof visibleTools)[number]) => <Component key={id} />;
-  // The most specific section wins: a project page is part of the projects section
-  // even though the store also lists it as reachable. Sections are ordered by their
-  // first entry, so deeper matches are found by scanning every path of each section.
-  const activeSection = sections.find((section) => items.some((item) => item.section === section.id && item.paths?.some(matchPath)));
-  const sectionItems = activeSection ? items.filter((item) => item.section === activeSection.id) : [];
-  // A section that lists its own entry point (the home sidebar, the store catalogue)
-  // keeps that entry visible; deeper sections such as a single project do not repeat it.
-  const sectionRoot = activeSection ? sectionItems.find((item) => !item.paths || item.paths.includes(item.path)) : undefined;
-  const subPaths = activeSection ? sectionItems.filter((item) => item !== sectionRoot) : [];
-  const repeatedEntry = Boolean(sectionRoot && sectionRoot.paths?.some(matchPath));
-  const visibleItems = activeSection
-    ? sectionItems.filter((item) => item !== sectionRoot || repeatedEntry)
-    : items.filter((item) => !item.section && (!item.paths || item.paths.some(matchPath)));
-  const sectionEntry = activeSection ? items.find((item) => item.section === activeSection.id) : undefined;
-  const sectionLabel = sectionEntry ? (sectionEntry.labelKey ? t(sectionEntry.labelKey) : sectionEntry.label) : undefined;
-  // The home sidebar is a set of global destinations: render it as a plain list without
-  // the section heading or a back link, which would only point at itself.
-  const isGlobalSection = Boolean(activeSection && sectionRoot && !subPaths.length && sectionRoot.path === "/");
-  const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-  const backTarget = activeSection ? `/projects/${projectMatch?.[1] ?? ""}` : "/";
-  const current = pathname.split("/").filter(Boolean);
-  const exactItem = visibleItems.find((item) => {
-    const pattern = resolvePath(item.path).split("/").filter(Boolean);
-    return pattern.length === current.length && pattern.every((part, index) => part === current[index]);
-  });
   const renderItem = ({ id, label, labelKey, path, icon: Icon }: (typeof visibleItems)[number]) => (
-    <NavLink
-      key={id}
-      to={resolvePath(path)}
-      end
-      className={(state) => `flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors ${(exactItem ? exactItem.id === id : state.isActive) ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-    >
+    <NavLink key={id} to={resolvePath(path)} end className={() => `flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors ${activeId === id ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
       <Icon className="size-4 shrink-0" />
       <span className="truncate">{labelKey ? t(labelKey) : t(label)}</span>
     </NavLink>
   );
-  const backLink = (
-    <Link to={backTarget} className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-      <ArrowLeft className="size-4 shrink-0" />{projectMatch ? t("cloud.project.backToList") : t("cloud.nav.backHome")}
-    </Link>
-  );
+
+  const sectionLabel = section ? (section.labelKey ? t(section.labelKey) : section.label) : undefined;
+  const backLabel = section?.backLabelKey ? t(section.backLabelKey) : t("cloud.nav.backHome");
+  void pathWithin;
+
   return (
     <div className="flex h-dvh min-h-[480px] flex-col overflow-hidden bg-background text-foreground">
       <header className="z-20 flex h-14 shrink-0 items-center border-b border-border bg-card">
@@ -90,8 +68,8 @@ export function DashboardFrame({ children }: { children: ReactNode }) {
       </nav>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border bg-card px-3 py-4 sm:block">
-          {activeSection && !isGlobalSection && backLink}
-          {!isGlobalSection && <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{sectionLabel}</div>}
+          {section?.backPath && !isLanding && <Link to={section.backPath} className="mb-3 flex h-9 items-center gap-2 rounded-md px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ArrowLeft className="size-4 shrink-0" />{backLabel}</Link>}
+          {sectionLabel && <div className="px-2 pb-2 text-xs font-medium uppercase text-muted-foreground">{sectionLabel}</div>}
           <nav className="space-y-1" aria-label={t("cloud.nav.mainNavigation")}>
             {visibleItems.map(renderItem)}
           </nav>
