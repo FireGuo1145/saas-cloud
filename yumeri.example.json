@@ -41,6 +41,10 @@
     "@jpgpanel/mc-instance": {
       "handshakeTimeoutMs": 180000
     },
+    "@jpgpanel/shell-instance": {
+      "defaultRunCommand": "sleep infinity",
+      "maxScriptBytes": 32768
+    },
     "@mirelia/auth": {
       "loginEnabled": true,
       "registrationEnabled": false

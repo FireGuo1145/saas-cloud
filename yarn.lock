@@ -904,6 +904,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@jpgpanel/shell-instance@workspace:^, @jpgpanel/shell-instance@workspace:panels/JPGPanel/packages/shell-instance":
+  version: 0.0.0-use.local
+  resolution: "@jpgpanel/shell-instance@workspace:panels/JPGPanel/packages/shell-instance"
+  dependencies:
+    "@jpgpanel/server-instances": "workspace:*"
+    "@mirelia/database-core": "workspace:*"
+  peerDependencies:
+    yumeri: ^3.1.4
+  languageName: unknown
+  linkType: soft
+
 "@jridgewell/gen-mapping@npm:^0.3.12, @jridgewell/gen-mapping@npm:^0.3.5":
   version: 0.3.13
   resolution: "@jridgewell/gen-mapping@npm:0.3.13"
@@ -988,6 +999,7 @@ __metadata:
     "@jpgpanel/file-manager": "workspace:^"
     "@jpgpanel/mc-instance": "workspace:^"
     "@jpgpanel/server-instances": "workspace:^"
+    "@jpgpanel/shell-instance": "workspace:^"
     "@mirelia/billing": "workspace:^"
     "@mirelia/project": "workspace:^"
     "@mirelia/rainyun": "workspace:^"
