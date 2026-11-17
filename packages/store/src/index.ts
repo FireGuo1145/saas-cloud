@@ -115,6 +115,8 @@ export interface StorePurchaseRequest {
   user: User;
   tenant: Tenant;
   project: { id: number; name: string };
+  /** Catalog line that was bought, e.g. `preset-12`. */
+  productId: string;
   selections: StoreFieldValues;
   quantity: number;
   /** One-time identifier so a retried checkout never buys twice. */
@@ -721,6 +723,7 @@ export async function apply(ctx: Context, pluginConfig: StoreConfig = { currency
       try {
         const result = await purchase({
           user, tenant: access.tenant, project: { id: access.project.id, name: access.project.name },
+          productId: item.product_id,
           selections: parseSelections(item.selections_json), quantity: item.quantity, idempotencyKey: `${order.order_id}:${item.plugin_id}:${item.product_id}`,
         });
         const product: ProjectProductEntry = await projectService.addProduct(item.plugin_id, {

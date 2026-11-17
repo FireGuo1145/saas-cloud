@@ -882,7 +882,6 @@ __metadata:
   dependencies:
     "@jpgpanel/server-instances": "workspace:*"
     "@mirelia/dashboard": "workspace:*"
-    "@mirelia/database-core": "workspace:*"
     "@vitejs/plugin-react": "npm:^6.0.1"
     react: "npm:^19.2.6"
     vite: "npm:^8.0.12"
@@ -903,17 +902,6 @@ __metadata:
     "@vitejs/plugin-react": "npm:^6.0.1"
     react: "npm:^19.2.6"
     vite: "npm:^8.0.12"
-  peerDependencies:
-    yumeri: ^3.1.4
-  languageName: unknown
-  linkType: soft
-
-"@jpgpanel/shell-instance@workspace:^, @jpgpanel/shell-instance@workspace:panels/JPGPanel/packages/shell-instance":
-  version: 0.0.0-use.local
-  resolution: "@jpgpanel/shell-instance@workspace:panels/JPGPanel/packages/shell-instance"
-  dependencies:
-    "@jpgpanel/server-instances": "workspace:*"
-    "@mirelia/database-core": "workspace:*"
   peerDependencies:
     yumeri: ^3.1.4
   languageName: unknown
@@ -1003,7 +991,6 @@ __metadata:
     "@jpgpanel/file-manager": "workspace:^"
     "@jpgpanel/mc-instance": "workspace:^"
     "@jpgpanel/server-instances": "workspace:^"
-    "@jpgpanel/shell-instance": "workspace:^"
     "@mirelia/billing": "workspace:^"
     "@mirelia/project": "workspace:^"
     "@mirelia/rainyun": "workspace:^"

@@ -22,9 +22,12 @@
       "purchaseEnabled": true
     },
     "@jpgpanel/server-instances": {
-      "publicUrl": "http://localhost:3001",
-      "terminalBufferLines": 500,
-      "defaultGraceMs": 10000
+      "dockerSocket": "/var/run/docker.sock",
+      "dataDir": "./data/instances",
+      "portRangeStart": 30000,
+      "portRangeEnd": 30999,
+      "healthTimeoutSeconds": 180,
+      "pullOnCreate": true
     },
     "@jpgpanel/file-manager": {
       "maxEditBytes": 2097152,
@@ -38,13 +41,7 @@
       "intervalMinutes": 15,
       "onlyConfigured": true
     },
-    "@jpgpanel/mc-instance": {
-      "handshakeTimeoutMs": 180000
-    },
-    "@jpgpanel/shell-instance": {
-      "defaultRunCommand": "sleep infinity",
-      "maxScriptBytes": 32768
-    },
+    "@jpgpanel/mc-instance": {},
     "@mirelia/auth": {
       "loginEnabled": true,
       "registrationEnabled": false

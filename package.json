@@ -18,7 +18,6 @@
     "@jpgpanel/file-manager": "workspace:^",
     "@jpgpanel/mc-instance": "workspace:^",
     "@jpgpanel/server-instances": "workspace:^",
-    "@jpgpanel/shell-instance": "workspace:^",
     "@mirelia/billing": "workspace:^",
     "@mirelia/project": "workspace:^",
     "@mirelia/rainyun": "workspace:^",
